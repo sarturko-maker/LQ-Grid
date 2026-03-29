@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useRef } from 'react';
 import {
-  Download, Plus,
+  Download, Plus, Upload,
   ChevronDown, Sparkles, FolderOpen, Users, WrapText,
 } from 'lucide-react';
 import type { Manifest } from '@/types';
@@ -31,6 +32,18 @@ export function GridToolbar({
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const currentModel = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddContracts = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const form = new FormData();
+    for (const f of files) form.append('file', f);
+    try {
+      await fetch('http://localhost:3002/upload', { method: 'POST', body: form });
+    } catch { /* server not running */ }
+    e.target.value = '';
+  };
 
   return (
     <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-slate-200">
@@ -46,6 +59,9 @@ export function GridToolbar({
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        <input ref={fileInputRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.md"
+          className="hidden" onChange={handleAddContracts} />
+        <Btn onClick={() => fileInputRef.current?.click()} icon={Upload} label="Add Contracts" />
         <Btn onClick={onAddColumn} icon={Plus} label="Column" />
         <button onClick={onGrouping}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600
