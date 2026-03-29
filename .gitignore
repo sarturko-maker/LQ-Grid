@@ -32,6 +32,9 @@ src/ui/public/data/output/*
 # Environment
 .env
 
+# Test data
+test-contracts/
+
 # OS
 .DS_Store
 Thumbs.db

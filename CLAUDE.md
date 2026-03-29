@@ -39,11 +39,16 @@ When pointed to a folder of contracts:
    - `templates/schemas/ma-dd-standard.json` — 14 columns (broader DD)
    - `templates/schemas/data-mapping.json` — 12 columns (GDPR)
 
-4. **Extract** — spawn Sonnet reviewer agents in batches of 5 documents.
-   Each agent reads the contract texts and returns structured JSON with:
+4. **Extract** — spawn Sonnet reviewer agents to extract all schema columns.
+   Each agent handles 5 documents and returns structured JSON with:
    - `value`, `source_quote` (verbatim), `source_location` (clause ref)
    - `source_start`, `source_end` (character offsets for highlighting)
    - `confidence`, `notes`
+
+   **Parallelism**: launch up to 10 agents simultaneously in each wave.
+   For 500 documents: 10 agents x 5 docs = 50 docs per wave, 10 waves total.
+   Launch all agents in a wave using a single message with multiple Agent tool
+   calls. Wait for all to complete, then launch the next wave.
 
    Write results to `data/output/results/batch-NNN.json`.
 
@@ -94,10 +99,15 @@ The user dropped contracts into the UI. The files are already saved to
 data/contracts/ and src/ui/public/data/contracts/.
 
 1. Run `python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/`
-2. Spawn Sonnet reviewer agents (batches of 5) to extract all columns
-3. Run format_for_ui.py to build the manifest
-4. Copy manifest to src/ui/public/data/output/ui-manifest.json
-5. Reply confirming how many documents were processed
+2. Copy originals to `src/ui/public/data/contracts/` (upload handler does this automatically)
+3. Spawn Sonnet reviewer agents — 10 parallel agents per wave, 5 docs each
+4. After each wave, rebuild manifest and copy to UI so the grid populates progressively:
+   ```
+   python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/consent-review.json --output data/output/ui-manifest.json --contracts data/contracts/
+   cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json
+   ```
+5. Continue waves until all documents are extracted
+6. Reply confirming how many documents were processed
 
 ### type: "query" (Analyst chat)
 

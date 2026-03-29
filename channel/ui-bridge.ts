@@ -234,9 +234,9 @@ Bun.serve({
                 files.map(f => `- ${f}`).join('\n') + '\n\n' +
                 `Follow the Full Extraction Workflow in CLAUDE.md:\n` +
                 `1. Convert all documents to text\n` +
-                `2. Extract data using the consent-review schema\n` +
-                `3. Build the manifest and copy to UI\n` +
-                `Use Sonnet for extraction. Batch 5 documents per agent.`,
+                `2. Extract using the consent-review schema — spawn up to 10 parallel Sonnet agents per wave, 5 docs each\n` +
+                `3. After each wave completes, rebuild the manifest and copy to UI so the grid populates progressively\n` +
+                `4. Continue until all documents are extracted`,
             }),
             meta: { request_id: reqId, type: 'upload' },
           },
