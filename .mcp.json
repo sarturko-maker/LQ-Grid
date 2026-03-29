@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "lq-ui-bridge": {
+      "command": "bun",
+      "args": ["./channel/ui-bridge.ts"],
+      "env": {
+        "PATH": "/home/sarturko/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+      }
+    }
+  }
+}

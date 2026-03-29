@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build artifacts
+src/ui/dist/
+*.pyc
+__pycache__/
+
+# Data — user documents, never commit
+data/contracts/*
+!data/contracts/.gitkeep
+data/output/texts/*
+!data/output/texts/.gitkeep
+data/output/results/*
+!data/output/results/.gitkeep
+data/output/responses/*
+!data/output/responses/.gitkeep
+data/output/letters/*
+!data/output/letters/.gitkeep
+data/output/reports/*
+!data/output/reports/.gitkeep
+data/output/ui-manifest.json
+data/output/verification.json
+
+# UI public data — copied at runtime
+src/ui/public/data/contracts/*
+!src/ui/public/data/contracts/.gitkeep
+src/ui/public/data/output/*
+!src/ui/public/data/output/.gitkeep
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.claude/settings.local.json

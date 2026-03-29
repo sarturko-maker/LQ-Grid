@@ -1,0 +1,74 @@
+{
+  "name": "Change of Control / Consent Review",
+  "description": "For M&A transactions — identify contracts requiring consent or notification upon change of control",
+  "columns": [
+    {
+      "id": "counterparty",
+      "label": "Counterparty",
+      "prompt": "Name of the other party to the contract",
+      "type": "string"
+    },
+    {
+      "id": "contract_type",
+      "label": "Contract Type",
+      "prompt": "Type of agreement (MSA, NDA, licence, supply, lease, etc.)",
+      "type": "string"
+    },
+    {
+      "id": "date",
+      "label": "Date",
+      "prompt": "Date of the agreement as stated on the front page or in the recitals",
+      "type": "date"
+    },
+    {
+      "id": "governing_law",
+      "label": "Governing Law",
+      "prompt": "Governing law jurisdiction as stated in the governing law or applicable law clause",
+      "type": "string"
+    },
+    {
+      "id": "assignment_found",
+      "label": "Assignment Clause",
+      "prompt": "Does this contract restrict assignment or transfer? Quote the relevant clause verbatim.",
+      "type": "boolean"
+    },
+    {
+      "id": "coc_found",
+      "label": "Change of Control",
+      "prompt": "Does this contract contain a change of control provision? Quote verbatim.",
+      "type": "boolean"
+    },
+    {
+      "id": "mechanism",
+      "label": "Mechanism",
+      "prompt": "What is triggered by assignment or change of control: prior written consent, notification only, termination right, or nothing?",
+      "type": "enum",
+      "options": ["consent", "notification", "termination_right", "carve_out", "none"]
+    },
+    {
+      "id": "notice_address",
+      "label": "Notice Address",
+      "prompt": "Counterparty's address for formal notices as stated in the notices clause of the contract",
+      "type": "string"
+    },
+    {
+      "id": "action",
+      "label": "Action Required",
+      "prompt": "Based on the assignment and change of control provisions, what action is required: obtain consent, send notification, or no action?",
+      "type": "enum",
+      "options": ["obtain_consent", "send_notification", "no_action", "flag_for_review"]
+    },
+    {
+      "id": "termination_convenience",
+      "label": "Termination for Convenience",
+      "prompt": "Does this contract contain a termination for convenience clause? If so, what notice period is required?",
+      "type": "string"
+    },
+    {
+      "id": "non_compete",
+      "label": "Non-Compete",
+      "prompt": "Are there any non-compete provisions? If so, summarise the duration, scope, and geographic restrictions.",
+      "type": "string"
+    }
+  ]
+}

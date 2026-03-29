@@ -1,0 +1,79 @@
+{
+  "name": "Data Protection Mapping",
+  "description": "Map data processing activities across contracts for GDPR/privacy compliance",
+  "columns": [
+    {
+      "id": "counterparty",
+      "label": "Counterparty / Processor",
+      "prompt": "Name of the other party (data processor, sub-processor, or controller)",
+      "type": "string"
+    },
+    {
+      "id": "contract_type",
+      "label": "Agreement Type",
+      "prompt": "Type of agreement (DPA, MSA with DPA schedule, SCC, processor agreement, etc.)",
+      "type": "string"
+    },
+    {
+      "id": "role",
+      "label": "Data Role",
+      "prompt": "Is the counterparty acting as controller, processor, sub-processor, or joint controller?",
+      "type": "enum",
+      "options": ["controller", "processor", "sub_processor", "joint_controller"]
+    },
+    {
+      "id": "personal_data",
+      "label": "Categories of Personal Data",
+      "prompt": "What categories of personal data are processed? (e.g. names, emails, financial, health, location)",
+      "type": "list"
+    },
+    {
+      "id": "data_subjects",
+      "label": "Data Subjects",
+      "prompt": "Who are the data subjects? (e.g. employees, customers, website visitors, patients)",
+      "type": "list"
+    },
+    {
+      "id": "processing_purposes",
+      "label": "Processing Purposes",
+      "prompt": "For what purposes is personal data processed under this agreement?",
+      "type": "string"
+    },
+    {
+      "id": "transfer_mechanism",
+      "label": "International Transfer",
+      "prompt": "Is there an international data transfer? If so, what mechanism is used (SCCs, adequacy decision, BCRs)?",
+      "type": "string"
+    },
+    {
+      "id": "sub_processors",
+      "label": "Sub-Processors",
+      "prompt": "Are sub-processors permitted? Is prior consent required? Are they listed?",
+      "type": "string"
+    },
+    {
+      "id": "security_measures",
+      "label": "Security Measures",
+      "prompt": "What technical and organisational security measures are specified? (encryption, access controls, etc.)",
+      "type": "string"
+    },
+    {
+      "id": "breach_notification",
+      "label": "Breach Notification",
+      "prompt": "What is the breach notification timeframe? (e.g. 24 hours, 48 hours, without undue delay)",
+      "type": "string"
+    },
+    {
+      "id": "retention",
+      "label": "Data Retention",
+      "prompt": "What happens to personal data on termination? Is there a retention period or deletion obligation?",
+      "type": "string"
+    },
+    {
+      "id": "audit_rights",
+      "label": "Audit Rights",
+      "prompt": "Does the controller have audit rights over the processor? Quote the relevant provision.",
+      "type": "boolean"
+    }
+  ]
+}

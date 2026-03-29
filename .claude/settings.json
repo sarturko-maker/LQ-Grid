@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/sarturko/projects/tabular_review/src/pipeline/check_requests.py 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); n=d.get('pending',0); print(json.dumps({'hookSpecificOutput':{'hookEventName':'PostToolUse','additionalContext':f'[UI REQUESTS] {n} pending requests from the UI. Run: python3 src/pipeline/check_requests.py to see details. Process them immediately.'}})) if n > 0 else None\" 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

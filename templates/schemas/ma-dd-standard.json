@@ -1,0 +1,90 @@
+{
+  "name": "M&A Due Diligence — Standard Review",
+  "description": "Standard due diligence review for mergers and acquisitions — extract key commercial and legal terms",
+  "columns": [
+    {
+      "id": "counterparty",
+      "label": "Counterparty",
+      "prompt": "Name of the other party or parties to the contract",
+      "type": "string"
+    },
+    {
+      "id": "contract_type",
+      "label": "Contract Type",
+      "prompt": "Type of agreement (e.g. MSA, NDA, SPA, licence, lease, employment, supply)",
+      "type": "string"
+    },
+    {
+      "id": "effective_date",
+      "label": "Effective Date",
+      "prompt": "Effective date or execution date of the agreement",
+      "type": "date"
+    },
+    {
+      "id": "expiry_date",
+      "label": "Expiry / Renewal Date",
+      "prompt": "Expiry date, end date, or next renewal date. If auto-renewing, state the renewal mechanism.",
+      "type": "string"
+    },
+    {
+      "id": "governing_law",
+      "label": "Governing Law",
+      "prompt": "Governing law and jurisdiction for dispute resolution",
+      "type": "string"
+    },
+    {
+      "id": "value",
+      "label": "Contract Value",
+      "prompt": "Total contract value, annual fees, or pricing. Include currency.",
+      "type": "string"
+    },
+    {
+      "id": "termination",
+      "label": "Termination Rights",
+      "prompt": "Summarise termination provisions: who can terminate, on what grounds, and with what notice period. Quote key provisions.",
+      "type": "string"
+    },
+    {
+      "id": "liability_cap",
+      "label": "Liability Cap",
+      "prompt": "Maximum liability or limitation of liability amount. Quote the relevant clause.",
+      "type": "string"
+    },
+    {
+      "id": "ip_ownership",
+      "label": "IP Ownership",
+      "prompt": "Who owns intellectual property created under this contract? Quote the relevant clause.",
+      "type": "string"
+    },
+    {
+      "id": "confidentiality",
+      "label": "Confidentiality",
+      "prompt": "Duration and scope of confidentiality obligations. Are there carve-outs?",
+      "type": "string"
+    },
+    {
+      "id": "assignment",
+      "label": "Assignment Restriction",
+      "prompt": "Can the contract be assigned? Quote the assignment clause verbatim.",
+      "type": "string"
+    },
+    {
+      "id": "coc",
+      "label": "Change of Control",
+      "prompt": "Is there a change of control provision? What does it trigger? Quote verbatim.",
+      "type": "string"
+    },
+    {
+      "id": "non_compete",
+      "label": "Non-Compete / Non-Solicit",
+      "prompt": "Are there non-compete or non-solicitation restrictions? Duration, scope, geography.",
+      "type": "string"
+    },
+    {
+      "id": "key_risks",
+      "label": "Key Risks",
+      "prompt": "Identify the top 2-3 commercial or legal risks in this contract for the acquiring party.",
+      "type": "string"
+    }
+  ]
+}
