@@ -11,6 +11,8 @@ ENRICHMENT_COLUMNS = {
     'date', 'effective_date', 'expiry_date', 'governing_law',
 }
 
+QA_BATCH = 3  # max documents per QA/classification call (large docs cause 500s)
+
 
 def conf(score: float) -> str:
     if score > 0.8: return "high"
@@ -106,15 +108,37 @@ def party_from_enrichment(doc, text: str) -> str | None:
 
 # ── Batched QA ─────────────────────────────────────────────────
 
+def _qa_single(client, text: str, query: str):
+    """QA on one doc. Returns extraction or None on failure."""
+    try:
+        r = client.extractions.qa.create(
+            model="kanon-answer-extractor", query=query,
+            texts=[text], top_k=3, ignore_inextractability=True)
+        return r.extractions[0]
+    except Exception:
+        return None
+
+
 def batch_qa(client, texts: list[str], prompt: str) -> list[dict]:
-    """Run one QA query across all texts in a single API call."""
+    """Run QA batched, with single-doc fallback on 500 errors."""
     query = simplify_prompt(prompt)
-    r = client.extractions.qa.create(
-        model="kanon-answer-extractor", query=query,
-        texts=texts, top_k=3, ignore_inextractability=True,
-    )
+    all_extractions: list = []
+    for i in range(0, len(texts), QA_BATCH):
+        batch = texts[i:i + QA_BATCH]
+        try:
+            r = client.extractions.qa.create(
+                model="kanon-answer-extractor", query=query,
+                texts=batch, top_k=3, ignore_inextractability=True)
+            all_extractions.extend(r.extractions)
+        except Exception:
+            # Batch failed — try each doc individually
+            for t in batch:
+                all_extractions.append(_qa_single(client, t, query))
     cells = []
-    for ex in r.extractions:
+    for ex in all_extractions:
+        if ex is None:
+            cells.append(null_cell("API error"))
+            continue
         answers = [a for a in ex.answers if a.score > 0.1]
         if not answers:
             cells.append(null_cell())
@@ -134,15 +158,41 @@ def batch_qa(client, texts: list[str], prompt: str) -> list[dict]:
 
 # ── Batched classification ─────────────────────────────────────
 
+def _classify_single(client, text: str, query_iql: str):
+    try:
+        r = client.classifications.universal.create(
+            model="kanon-universal-classifier",
+            query=query_iql, texts=[text], is_iql=True)
+        return r.classifications[0]
+    except Exception:
+        return None
+
+
+def _batch_classify(client, texts: list[str], query_iql: str) -> list:
+    """Classify with per-batch fallback to single-doc calls."""
+    all_class: list = []
+    for i in range(0, len(texts), QA_BATCH):
+        batch = texts[i:i + QA_BATCH]
+        try:
+            r = client.classifications.universal.create(
+                model="kanon-universal-classifier",
+                query=query_iql, texts=batch, is_iql=True)
+            all_class.extend(r.classifications)
+        except Exception:
+            for t in batch:
+                all_class.append(_classify_single(client, t, query_iql))
+    return all_class
+
+
 def batch_clause(client, texts: list[str], prompt: str) -> list[dict]:
-    """Find relevant clauses across all texts in one call."""
+    """Find relevant clauses across all texts, batched."""
     query = simplify_prompt(prompt).rstrip('?')
-    r = client.classifications.universal.create(
-        model="kanon-universal-classifier",
-        query=f"{{{query}}}", texts=texts, is_iql=True,
-    )
+    all_class = _batch_classify(client, texts, f"{{{query}}}")
     cells = []
-    for c in r.classifications:
+    for c in all_class:
+        if c is None:
+            cells.append(null_cell("API error"))
+            continue
         if not c.chunks:
             cells.append(null_cell())
             continue
@@ -166,14 +216,14 @@ def batch_clause(client, texts: list[str], prompt: str) -> list[dict]:
 
 
 def batch_bool(client, texts: list[str], prompt: str) -> list[dict]:
-    """Yes/No classification across all texts in one call."""
+    """Yes/No classification across all texts, batched."""
     query = simplify_prompt(prompt).rstrip('?')
-    r = client.classifications.universal.create(
-        model="kanon-universal-classifier",
-        query=f"{{{query}}}", texts=texts, is_iql=True,
-    )
+    all_class = _batch_classify(client, texts, f"{{{query}}}")
     cells = []
-    for c in r.classifications:
+    for c in all_class:
+        if c is None:
+            cells.append(null_cell("API error"))
+            continue
         ch = max(c.chunks, key=lambda x: x.score) if c.chunks else None
         cells.append({
             "value": "Yes" if c.score > 0.5 else "No",
@@ -186,19 +236,16 @@ def batch_bool(client, texts: list[str], prompt: str) -> list[dict]:
 
 
 def batch_enum(client, texts: list[str], col: dict) -> list[dict]:
-    """Score each enum option across all texts."""
+    """Score each enum option across all texts, batched."""
     options = col.get("options", [])
     if not options:
         return batch_qa(client, texts, col["prompt"])
     label = col["label"].lower()
     scores: list[dict] = [{} for _ in texts]
     for opt in options:
-        r = client.classifications.universal.create(
-            model="kanon-universal-classifier",
-            query=f"{{The {label} is {opt.replace('_', ' ')}}}",
-            texts=texts, is_iql=True,
-        )
-        for i, c in enumerate(r.classifications):
+        all_class = _batch_classify(
+            client, texts, f"{{The {label} is {opt.replace('_', ' ')}}}")
+        for i, c in enumerate(all_class):
             ch = max(c.chunks, key=lambda x: x.score) if c.chunks else None
             scores[i][opt] = (c.score, ch)
     cells = []
