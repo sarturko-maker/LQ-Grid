@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { CheckCircle, AlertCircle, Minus } from 'lucide-react';
 import type { Cell, VerificationEntry } from '@/types';
 
@@ -48,6 +49,19 @@ export function GridCell({
   cell, columnId, isSelected, verification, wrapText, onClick,
 }: GridCellProps) {
   const vStatus = verification?.status;
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const contentRef = useRef<HTMLSpanElement>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (wrapText && contentRef.current) {
+      const el = contentRef.current;
+      setIsOverflowing(el.scrollHeight > el.clientHeight);
+    } else {
+      setIsOverflowing(false);
+    }
+  }, [wrapText, cell.display]);
 
   if (cell.status === 'pending') {
     return (
@@ -74,23 +88,45 @@ export function GridCell({
   const displayValue = verification?.override || cell.display;
   const semantic = vStatus ? '' : buyerSemantic(cell.value, columnId);
 
+  const handleMouseEnter = () => {
+    if (wrapText && isOverflowing) {
+      hoverTimer.current = setTimeout(() => setShowTooltip(true), 400);
+    }
+  };
+  const handleMouseLeave = () => {
+    clearTimeout(hoverTimer.current);
+    setShowTooltip(false);
+  };
+
   return (
     <td
       className={`p-3 border-b border-r border-l-2 border-slate-200 cursor-pointer
-        transition-all duration-150
+        transition-all duration-150 relative overflow-visible
         ${wrapText ? 'whitespace-normal break-words' : 'truncate max-w-[250px]'}
         ${semantic || 'border-l-slate-200'}
         ${vStatus ? verificationBg(vStatus) : ''}
         ${isSelected ? 'bg-indigo-50 ring-inset ring-2 ring-indigo-500' : 'hover:bg-slate-50/80'}`}
-      onClick={onClick} title={wrapText ? undefined : displayValue}
+      onClick={onClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div className={`flex items-start justify-between gap-2 ${wrapText ? '' : 'items-center'}`}>
-        <span className={`text-sm ${wrapText ? 'whitespace-normal' : 'truncate'}`}>
+        <span ref={contentRef}
+          className={`text-sm ${wrapText ? 'line-clamp-3' : 'truncate'}`}>
           {displayValue}
         </span>
         {vStatus === 'verified' && <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
         {vStatus === 'flagged' && <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
       </div>
+
+      {showTooltip && (
+        <div className="absolute z-50 left-0 top-full mt-1 bg-white border border-slate-200
+                        shadow-xl rounded-lg p-3 max-w-md text-sm text-slate-700
+                        whitespace-normal break-words pointer-events-none"
+          style={{ minWidth: '200px', maxHeight: '300px', overflow: 'auto' }}>
+          {displayValue}
+        </div>
+      )}
     </td>
   );
 }

@@ -28,6 +28,8 @@ def check():
         # Skip if already responded
         resp_file = RESPONSES_DIR / f"{req_id}.json"
         if resp_file.exists():
+            # Clean up processed request files
+            f.unlink(missing_ok=True)
             continue
 
         pending.append({

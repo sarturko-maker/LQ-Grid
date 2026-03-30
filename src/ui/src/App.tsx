@@ -25,7 +25,7 @@ import { DropZone } from '@/components/Upload/DropZone';
 import { ResizeHandle } from '@/components/ResizeHandle';
 
 export default function App() {
-  const { manifest, loading, error } = useManifest();
+  const { manifest, loading, error, clear: clearManifest } = useManifest();
   const jobName = manifest?.job.name || 'Untitled';
   const ver = useVerification(jobName);
   const sb = useSidebar();
@@ -51,6 +51,26 @@ export default function App() {
   }, [manifest, cols.allColumns, cols.pendingColumns]);
 
   const uniqueParties = useMemo(() => getUniqueCounterparties(ext), [ext]);
+
+  const RELAY = 'http://localhost:3002';
+
+  const handleDeleteRow = useCallback(async (rowId: string) => {
+    try {
+      const resp = await fetch(`${RELAY}/rows/delete`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [rowId] }),
+      });
+      if (!resp.ok) console.error('Delete failed:', await resp.text());
+    } catch (e) { console.error('Delete error:', e); }
+  }, []);
+
+  const handleClearGrid = useCallback(async () => {
+    if (!confirm('Clear all rows from the grid? This cannot be undone.')) return;
+    try {
+      const resp = await fetch(`${RELAY}/manifest/clear`, { method: 'POST' });
+      if (resp.ok) clearManifest();
+    } catch { /* server not running */ }
+  }, [clearManifest]);
 
   const handleGroupExtraction = useCallback((groupId: string, name: string, docIds: string[]) => {
     if (!ext) return;
@@ -97,7 +117,8 @@ export default function App() {
         onAddColumn={sb.openColumnEditor} onActions={sb.openActions}
         onGrouping={sb.openGrouping} groupCount={grp.groups.length}
         onCounterparties={sb.openCounterpartyList} partyCount={uniqueParties.length}
-        wrapText={wrapText} onToggleWrap={() => setWrapText((w) => !w)} />
+        wrapText={wrapText} onToggleWrap={() => setWrapText((w) => !w)}
+        onClearGrid={handleClearGrid} />
 
       <div className="flex-1 flex overflow-hidden">
         <DataGrid manifest={ext} columnOrder={cols.columnOrder}
@@ -106,7 +127,8 @@ export default function App() {
           onCellClick={sb.openCellDetail} onDocClick={sb.openDocPreview}
           onColumnReorder={cols.setColumnOrder} getVerification={ver.getStatus}
           onCounterpartyClick={sb.openCounterpartyProfile}
-          getConsentStatus={cp.getConsentStatus} />
+          getConsentStatus={cp.getConsentStatus}
+          onDeleteRow={handleDeleteRow} />
 
         <div className={`shrink-0 bg-white z-20 relative transition-[width,opacity] duration-300
           ease-out overflow-hidden ${sb.isOpen ? 'border-l border-slate-200 shadow-xl' : ''}`}
@@ -125,7 +147,7 @@ export default function App() {
                 onOverride={(v, n) => ver.override(sb.selectedCell!.rowId, sb.selectedCell!.colId, v, n)}
                 onClear={() => ver.clear(sb.selectedCell!.rowId, sb.selectedCell!.colId)}
                 onClose={sb.close}
-                onViewSource={(rowId, quote, start, end) => sb.openDocPreview(rowId, quote, start, end)} />
+                onViewSource={(rowId, quote, start, end, quotes) => sb.openDocPreview(rowId, quote, start, end, quotes)} />
             )}
             {sb.mode === 'column-editor' && (
               <ColumnEditor model={selectedModel}
@@ -157,6 +179,7 @@ export default function App() {
               <DocumentView documentName={previewRow._document}
                 sourceQuote={sb.sourceQuote}
                 sourceStart={sb.sourceStart} sourceEnd={sb.sourceEnd}
+                sourceQuotes={sb.sourceQuotes}
                 onClose={sb.close} />
             )}
             {sb.mode === 'chat' && <AnalystChat onClose={sb.close} />}

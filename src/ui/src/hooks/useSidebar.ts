@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { SidebarMode, SelectedCell } from '@/types';
+import type { SidebarMode, SelectedCell, SourceRef } from '@/types';
 
 export function useSidebar() {
   const [mode, setMode] = useState<SidebarMode>('none');
@@ -19,15 +19,17 @@ export function useSidebar() {
   const [sourceQuote, setSourceQuote] = useState<string | null>(null);
   const [sourceStart, setSourceStart] = useState<number | undefined>(undefined);
   const [sourceEnd, setSourceEnd] = useState<number | undefined>(undefined);
+  const [sourceQuotes, setSourceQuotes] = useState<SourceRef[] | undefined>(undefined);
 
-  const openDocPreview = (rowId: string, quote?: string, start?: number, end?: number) => {
+  const openDocPreview = (rowId: string, quote?: string, start?: number, end?: number, quotes?: SourceRef[]) => {
     setSelectedCell(null);
     setPreviewDocId(rowId);
     setSourceQuote(quote || null);
     setSourceStart(start);
     setSourceEnd(end);
+    setSourceQuotes(quotes);
     setMode('document-preview');
-    setWidth(560);
+    setWidth(Math.round(window.innerWidth * 0.45));
   };
 
   const openColumnEditor = () => { setMode('column-editor'); setWidth(400); };
@@ -62,11 +64,12 @@ export function useSidebar() {
     setSourceQuote(null);
     setSourceStart(undefined);
     setSourceEnd(undefined);
+    setSourceQuotes(undefined);
   };
 
   return {
     mode, selectedCell, previewDocId, counterpartyName,
-    sourceQuote, sourceStart, sourceEnd,
+    sourceQuote, sourceStart, sourceEnd, sourceQuotes,
     width, setWidth, isOpen: mode !== 'none',
     openCellDetail, openDocPreview, openColumnEditor,
     openActions, openGrouping, openCounterpartyProfile,

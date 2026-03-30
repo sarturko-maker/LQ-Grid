@@ -12,7 +12,7 @@ interface CellDetailProps {
   onOverride: (value: string, note?: string) => void;
   onClear: () => void;
   onClose: () => void;
-  onViewSource?: (rowId: string, quote: string, start?: number, end?: number) => void;
+  onViewSource?: (rowId: string, quote: string, start?: number, end?: number, quotes?: import('@/types').SourceRef[]) => void;
 }
 
 export function CellDetail({
@@ -54,26 +54,46 @@ export function CellDetail({
           )}
         </div>
 
-        {cell.source_quote && (
+        {(cell.source_quote || (cell.source_quotes && cell.source_quotes.length > 0)) && (
           <div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase mb-1.5">Source Quote</h4>
-            <blockquote className="p-3 bg-amber-50 border-l-2 border-amber-300 rounded-r-lg
-                                   text-sm text-slate-700 italic leading-relaxed">
-              "{cell.source_quote}"
-            </blockquote>
-            {cell.source_location && (
+            <h4 className="text-xs font-bold text-slate-400 uppercase mb-1.5">
+              Source Quote{cell.source_quotes && cell.source_quotes.length > 1 ? 's' : ''}
+            </h4>
+            {cell.source_quotes && cell.source_quotes.length > 0 ? (
+              cell.source_quotes.map((sq, i) => (
+                <div key={i} className={i > 0 ? 'mt-2' : ''}>
+                  <blockquote className="p-3 bg-amber-50 border-l-2 border-amber-300 rounded-r-lg
+                                         text-sm text-slate-700 italic leading-relaxed">
+                    "{sq.quote}"
+                  </blockquote>
+                  {sq.location && (
+                    <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
+                      <MapPin className="w-3 h-3" />{sq.location}
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <blockquote className="p-3 bg-amber-50 border-l-2 border-amber-300 rounded-r-lg
+                                     text-sm text-slate-700 italic leading-relaxed">
+                "{cell.source_quote}"
+              </blockquote>
+            )}
+            {cell.source_location && !cell.source_quotes?.length && (
               <div className="flex items-center gap-1 mt-1.5 text-xs text-slate-500">
                 <MapPin className="w-3 h-3" />{cell.source_location}
               </div>
             )}
             <div className="flex items-center gap-3 mt-2">
-              <button onClick={() => navigator.clipboard.writeText(cell.source_quote!)}
+              <button onClick={() => navigator.clipboard.writeText(
+                  cell.source_quotes?.map(q => q.quote).join('\n\n') || cell.source_quote || '')}
                 className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
                 <Copy className="w-3 h-3" />Copy
               </button>
               {onViewSource && (
-                <button onClick={() => onViewSource(row._id, cell.source_quote!,
-                    cell.source_start, cell.source_end)}
+                <button onClick={() => onViewSource(row._id,
+                    cell.source_quote || cell.source_quotes?.[0]?.quote || '',
+                    cell.source_start, cell.source_end, cell.source_quotes)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold
                              text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg
                              hover:bg-indigo-100 transition-colors">

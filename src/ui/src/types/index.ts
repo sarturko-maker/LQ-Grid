@@ -32,6 +32,14 @@ export interface Column {
   group: string | null;
 }
 
+/** A single source reference for highlighting */
+export interface SourceRef {
+  quote: string;
+  start?: number;
+  end?: number;
+  location?: string;
+}
+
 /** Cell data for a single extraction */
 export interface Cell {
   value: string | null;
@@ -42,6 +50,8 @@ export interface Cell {
   source_start?: number;
   /** Character offset (end) into the plain text file */
   source_end?: number;
+  /** Multiple source quotes for synthesized/analysis fields */
+  source_quotes?: SourceRef[];
   confidence: 'high' | 'medium' | 'low';
   status: 'complete' | 'failed' | 'pending';
   notes: string | null;

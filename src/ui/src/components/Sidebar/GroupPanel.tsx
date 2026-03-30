@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import {
-  X, FolderOpen, Plus, Users, Link2, Loader2, Check,
+  X, FolderOpen, Plus, Users, Link2, Loader2, Check, AlertTriangle,
 } from 'lucide-react';
 import type { Manifest, DocumentGroup } from '@/types';
 import { GroupCard, CreateGroupForm } from './GroupCard';
-import { pollResponse } from '@/lib/actions';
-import { parseGroupsFromResponse } from '@/lib/parseGroups';
 
 const RELAY = 'http://localhost:3002';
 
@@ -54,41 +52,20 @@ export function GroupPanel({
     const setState = mode === 'relationship' ? setRelState : setPartyState;
     setState('loading');
     try {
-      const reqId = `grp_${Date.now()}`;
-      const prompt = mode === 'relationship'
-        ? `Read data/output/ui-manifest.json and contract texts in data/output/texts/.\n` +
-          `Identify related documents — master agreements with their addendums, amendments, ` +
-          `side letters, participation agreements, schedules, or any subordinate documents.\n` +
-          `Return ONLY a raw JSON array (no markdown, no code fences):\n` +
-          `[{ "name": "Group Name", "documents": ["row_id", ...] }]`
-        : `Read data/output/ui-manifest.json.\n` +
-          `Group documents sharing the same counterparty or related corporate entities.\n` +
-          `Return ONLY a raw JSON array (no markdown, no code fences):\n` +
-          `[{ "name": "Party Name", "documents": ["row_id", ...] }]`;
-
-      await fetch(`${RELAY}/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: reqId, type: 'action', payload: { actionId: `auto-group-${mode}` }, prompt }),
-      });
-
-      const result = await pollResponse(reqId, 180000);
-      if (result.status === 'done' && result.data) {
-        const parsed = parseGroupsFromResponse(result.data);
-        for (const g of parsed) {
-          if (g.name && g.documents?.length > 0) {
-            const id = onAdd(g.name, g.documents);
-            onRequestExtraction(id, g.name, g.documents);
-          }
+      const resp = await fetch(`${RELAY}/group?mode=${mode}`);
+      if (!resp.ok) { setState('error'); return; }
+      const groups: Array<{ name: string; documents: string[] }> = await resp.json();
+      if (!Array.isArray(groups) || groups.length === 0) { setState('error'); return; }
+      for (const g of groups) {
+        if (g.name && g.documents?.length >= 2) {
+          onAdd(g.name, g.documents);
         }
-        setState(parsed.length > 0 ? 'done' : 'error');
-      } else {
-        setState('error');
       }
+      setState('done');
     } catch {
       setState('error');
     }
-    setTimeout(() => setState('idle'), 3000);
+    setTimeout(() => setState('idle'), 5000);
   };
 
   return (
@@ -170,10 +147,14 @@ function AutoBtn({ icon: Icon, label, sub, state, onClick }: {
                  rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
       {state === 'loading' ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
         : state === 'done' ? <Check className="w-4 h-4 text-emerald-500" />
+        : state === 'error' ? <AlertTriangle className="w-4 h-4 text-amber-500" />
         : <Icon className="w-4 h-4 text-slate-500" />}
       <span className="font-semibold text-slate-700">{label}</span>
       <span className="text-[10px] text-slate-400">
-        {state === 'loading' ? 'Analysing...' : state === 'done' ? 'Groups created' : sub}
+        {state === 'loading' ? 'Analysing...'
+          : state === 'done' ? 'Groups created'
+          : state === 'error' ? 'No groups found'
+          : sub}
       </span>
     </button>
   );

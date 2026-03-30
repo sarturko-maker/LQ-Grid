@@ -46,9 +46,33 @@
       "options": ["consent", "notification", "termination_right", "carve_out", "none"]
     },
     {
+      "id": "our_party",
+      "label": "Our Party",
+      "prompt": "Name of OUR party to the contract (the party that is NOT the counterparty). This is the entity on whose behalf consent will be sought.",
+      "type": "string"
+    },
+    {
+      "id": "agreement_title",
+      "label": "Agreement Title",
+      "prompt": "The formal title of the agreement exactly as it appears on the front page or first line (e.g. 'Goods Supply Agreement', 'Master Services Agreement'). Quote it verbatim.",
+      "type": "string"
+    },
+    {
+      "id": "consent_details",
+      "label": "Consent Mechanism",
+      "prompt": "How must consent be obtained? Extract: (a) must it be 'prior written consent'? (b) can consent be unreasonably withheld? (c) is there a deemed-consent if no response within a time period? (d) is there a specific form or process required? Quote the relevant language.",
+      "type": "string"
+    },
+    {
       "id": "notice_address",
       "label": "Notice Address",
-      "prompt": "Counterparty's address for formal notices as stated in the notices clause of the contract",
+      "prompt": "Counterparty's address for formal notices as stated in the notices clause of the contract. Include the full address exactly as written.",
+      "type": "string"
+    },
+    {
+      "id": "notice_method",
+      "label": "Notice Method",
+      "prompt": "How must formal notices be delivered? Extract the permitted delivery methods (e.g. registered post, courier, email, hand delivery) and any requirements (e.g. 'deemed received 3 business days after posting'). Quote the notices clause.",
       "type": "string"
     },
     {

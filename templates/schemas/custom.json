@@ -1,0 +1,12 @@
+{
+  "name": "Custom Schema",
+  "description": "User-defined extraction columns",
+  "columns": [
+    {
+      "id": "termination_rights",
+      "label": "Termination Rights",
+      "prompt": "Summary of termination rights. Identify who can terminate, on what grounds (for cause, for convenience, breach, insolvency), required notice periods, and any consequences of termination. Quote key provisions.",
+      "type": "string"
+    }
+  ]
+}

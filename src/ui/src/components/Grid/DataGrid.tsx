@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   useReactTable, getCoreRowModel, getSortedRowModel,
   flexRender, type SortingState,
@@ -25,12 +25,13 @@ interface DataGridProps {
   getVerification: (rowId: string, colId: string) => VerificationEntry | null;
   onCounterpartyClick: (name: string) => void;
   getConsentStatus: (name: string) => ConsentStatus;
+  onDeleteRow?: (rowId: string) => void;
 }
 
 export function DataGrid({
   manifest, columnOrder, selectedCell, groups, wrapText, onGroupToggle,
   onCellClick, onDocClick, onColumnReorder, getVerification,
-  onCounterpartyClick, getConsentStatus,
+  onCounterpartyClick, getConsentStatus, onDeleteRow,
 }: DataGridProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -71,11 +72,30 @@ export function DataGrid({
     onColumnReorder(next);
   };
 
+  const docWidth = colWidths['_document'] || 224;
+
+  const handleDocResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = docWidth;
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(120, startW + ev.clientX - startX);
+      handleResize('_document', newW);
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [docWidth, handleResize]);
+
   const tableColumns = useMemo(
     () => buildColumns(orderedColumns, selectedCell, onCellClick, onDocClick,
-      getVerification, onCounterpartyClick, getConsentStatus, wrapText),
+      getVerification, onCounterpartyClick, getConsentStatus, wrapText, docWidth, onDeleteRow),
     [orderedColumns, selectedCell, onCellClick, onDocClick,
-      getVerification, onCounterpartyClick, getConsentStatus, wrapText],
+      getVerification, onCounterpartyClick, getConsentStatus, wrapText, docWidth, onDeleteRow],
   );
 
   const table = useReactTable({
@@ -93,7 +113,8 @@ export function DataGrid({
   return (
     <div className="flex-1 overflow-auto">
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <table className="w-full text-left border-collapse">
+        <table className="text-left border-collapse"
+          style={{ tableLayout: 'fixed', width: 40 + docWidth + orderedColumns.reduce((s, c) => s + (colWidths[c.id] || 200), 0) }}>
           <thead className="sticky top-0 z-20 bg-white shadow-[0_1px_0_0_rgba(0,0,0,0.08)]">
             <tr>
               <th className="px-2 py-3 border-b border-r border-slate-200 bg-white
@@ -101,8 +122,14 @@ export function DataGrid({
                              sticky left-0 z-30 w-10 min-w-10">#</th>
               <th className="p-3 border-b border-r border-slate-200 bg-white
                              font-semibold text-xs text-slate-600 uppercase tracking-wider
-                             sticky left-10 z-30 w-56 min-w-56
-                             shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Document</th>
+                             sticky left-10 z-30 relative
+                             shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
+                style={{ width: docWidth, minWidth: 120 }}>
+                Document
+                <div className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize
+                                 hover:bg-indigo-400 active:bg-indigo-500 transition-colors"
+                  onMouseDown={handleDocResizeStart} />
+              </th>
               <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
                 {orderedColumns.map((col) => {
                   const ss = sorting.find((s) => s.id === col.id);
@@ -125,8 +152,9 @@ export function DataGrid({
               <th className="px-2 py-1.5 border-b border-r border-slate-200 bg-slate-50
                              sticky left-0 z-30 w-10 min-w-10" />
               <th className="px-2 py-1.5 border-b border-r border-slate-200 bg-slate-50
-                             sticky left-10 z-30 w-56 min-w-56
-                             shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]" />
+                             sticky left-10 z-30
+                             shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
+                style={{ width: docWidth, minWidth: 120 }} />
               {orderedColumns.map((col) => (
                 <th key={col.id} className="px-2 py-1.5 border-b border-r border-slate-200 bg-slate-50"
                   style={{ width: colWidths[col.id] || 200 }}>

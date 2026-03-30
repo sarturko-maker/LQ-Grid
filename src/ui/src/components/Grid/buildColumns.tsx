@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react';
+import { FileText, X } from 'lucide-react';
 import type { Row, Column, SelectedCell, VerificationEntry, ConsentStatus } from '@/types';
 import type { ColumnDef } from '@tanstack/react-table';
 import { GridCell } from './GridCell';
@@ -14,14 +14,18 @@ export function buildColumns(
   onCounterpartyClick?: (name: string) => void,
   getConsentStatus?: (name: string) => ConsentStatus,
   wrapText?: boolean,
+  docWidth?: number,
+  onDeleteRow?: (rowId: string) => void,
 ): ColumnDef<Row>[] {
+  const dw = docWidth || 224;
   const docCol: ColumnDef<Row> = {
     id: '_document',
     cell: ({ row }) => (
       <td className="p-3 border-b border-r border-slate-200 bg-white
-                     sticky left-10 z-10 w-56 min-w-56 cursor-pointer
+                     sticky left-10 z-10 cursor-pointer
                      group/doc hover:bg-slate-50 transition-colors duration-150
                      shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
+        style={{ width: dw, minWidth: 120 }}
         onClick={() => onDocClick(row.original._id)}>
         <div className="flex items-center gap-2.5">
           <div className="p-1.5 bg-slate-100 rounded-lg group-hover/doc:bg-indigo-50
@@ -80,20 +84,37 @@ export function buildColumns(
     },
   }));
 
-  // Row number column
+  // Row number column with delete on hover
   const numCol: ColumnDef<Row> = {
     id: '_num',
-    cell: ({ row }) => (
-      <td className="px-2 py-3 border-b border-r border-slate-200 bg-white text-center
-                     text-[11px] text-slate-400 font-mono w-10 min-w-10
-                     sticky left-0 z-10">
-        {row.index + 1}
-      </td>
-    ),
+    cell: ({ row }) => <RowNumCell index={row.index} rowId={row.original._id} onDelete={onDeleteRow} />,
     enableSorting: false,
   };
 
   return [numCol, docCol, ...dataCols];
+}
+
+function RowNumCell({ index, rowId, onDelete }: {
+  index: number; rowId: string; onDelete?: (id: string) => void;
+}) {
+  return (
+    <td className="px-2 py-3 border-b border-r border-slate-200 bg-white text-center
+                   text-[11px] text-slate-400 font-mono w-10 min-w-10
+                   sticky left-0 z-10">
+      <div className="group/num flex items-center justify-center">
+        <span className="group-hover/num:hidden">{index + 1}</span>
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(rowId); }}
+            className="hidden group-hover/num:block text-red-400 hover:text-red-600
+                       cursor-pointer transition-colors"
+            title="Delete row">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </td>
+  );
 }
 
 /** Sort values intelligently based on column type. */

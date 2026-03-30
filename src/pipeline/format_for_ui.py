@@ -55,7 +55,7 @@ def normalise_confidence(raw: str | None) -> str:
     """Normalise confidence to high/medium/low."""
     if not raw:
         return "low"
-    lower = raw.strip().lower()
+    lower = str(raw).strip().lower()
     if lower in ("high", "h"):
         return "high"
     if lower in ("medium", "med", "m"):
@@ -135,6 +135,9 @@ def build_cell(raw_cell: dict, col_type: str) -> dict:
         cell["source_start"] = raw_cell["source_start"]
     if raw_cell.get("source_end") is not None:
         cell["source_end"] = raw_cell["source_end"]
+    # Pass through multiple source quotes if present
+    if raw_cell.get("source_quotes"):
+        cell["source_quotes"] = raw_cell["source_quotes"]
     return cell
 
 
@@ -189,12 +192,21 @@ def build_manifest(
                 stats["pending"] += 1
 
         row_status = "failed" if row_has_failure else "complete"
-        rows.append({
+        row: dict = {
             "_id": doc_id,
             "_document": doc_name,
             "_status": row_status,
             "cells": cells,
-        })
+        }
+        # Preserve grouping metadata from extraction (if present)
+        party_group = doc_result.get("_party_group")
+        rel_group = doc_result.get("_relationship_group")
+        if party_group:
+            row["_party_group"] = str(party_group).strip()
+        if rel_group:
+            row["_relationship_group"] = str(rel_group).strip()
+
+        rows.append(row)
 
     total_cells = len(rows) * len(columns_def)
     name = job_name or schema.get("name", "Untitled Review")

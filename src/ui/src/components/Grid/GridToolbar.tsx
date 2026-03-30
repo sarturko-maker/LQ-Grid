@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRef } from 'react';
 import {
-  Download, Plus, Upload,
+  Download, Plus, Upload, Trash2,
   ChevronDown, Sparkles, FolderOpen, Users, WrapText,
 } from 'lucide-react';
 import type { Manifest } from '@/types';
@@ -22,12 +22,14 @@ interface GridToolbarProps {
   partyCount: number;
   wrapText: boolean;
   onToggleWrap: () => void;
+  onClearGrid: () => void;
 }
 
 export function GridToolbar({
   manifest, verifiedCount, flaggedCount,
   selectedModel, onModelChange, onAddColumn, onActions, onGrouping,
   groupCount, onCounterparties, partyCount, wrapText, onToggleWrap,
+  onClearGrid,
 }: GridToolbarProps) {
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -88,7 +90,7 @@ export function GridToolbar({
                      ${wrapText
                        ? 'text-indigo-700 bg-indigo-50 border-indigo-200'
                        : 'text-slate-600 bg-white border-slate-200 hover:bg-slate-50'}`}>
-          <WrapText className="w-3.5 h-3.5" /> Wrap
+          <WrapText className="w-3.5 h-3.5" /> Smart Wrap
         </button>
 
         {/* Export */}
@@ -111,6 +113,8 @@ export function GridToolbar({
             </>
           )}
         </div>
+
+        <Btn onClick={onClearGrid} icon={Trash2} label="Clear" />
 
         {/* Actions */}
         <button onClick={onActions}

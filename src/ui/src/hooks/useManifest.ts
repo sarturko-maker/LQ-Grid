@@ -64,5 +64,10 @@ export function useManifest() {
     fetchManifest();
   }, [fetchManifest]);
 
-  return { manifest, loading, error, reload };
+  const clear = useCallback(() => {
+    setManifest(null);
+    setLastModified(null);
+  }, []);
+
+  return { manifest, loading, error, reload, clear };
 }

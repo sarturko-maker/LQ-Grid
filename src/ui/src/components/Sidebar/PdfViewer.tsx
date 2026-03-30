@@ -7,6 +7,7 @@ const WORKER_URL = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.j
 interface PdfViewerProps {
   url: string;
   sourceQuote: string | null;
+  zoom?: number;
 }
 
 function norm(s: string): string {
@@ -120,7 +121,7 @@ function highlightPdf(container: HTMLElement, quote: string): boolean {
   return false;
 }
 
-export function PdfViewer({ url, sourceQuote }: PdfViewerProps) {
+export function PdfViewer({ url, sourceQuote, zoom = 100 }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const didHighlight = useRef(false);
   const observerRef = useRef<MutationObserver | null>(null);
@@ -151,7 +152,9 @@ export function PdfViewer({ url, sourceQuote }: PdfViewerProps) {
   return (
     <div ref={containerRef}
       className="h-full w-full bg-white rounded-lg shadow-lg overflow-hidden
-                 [&_.rpv-core__viewer]:h-full">
+                 [&_.rpv-core__viewer]:h-full"
+      style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left',
+               width: `${10000 / zoom}%`, height: `${10000 / zoom}%` }}>
       <Worker workerUrl={WORKER_URL}>
         <Viewer fileUrl={url} />
       </Worker>

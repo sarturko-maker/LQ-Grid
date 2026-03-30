@@ -9,10 +9,11 @@ interface DocxViewerProps {
   plainText: string | null;
   sourceStart?: number;
   sourceEnd?: number;
+  zoom?: number;
 }
 
 /** Renders a DOCX file using docx-preview, auto-scaled, with source highlighting. */
-export function DocxViewer({ url, sourceQuote, plainText, sourceStart, sourceEnd }: DocxViewerProps) {
+export function DocxViewer({ url, sourceQuote, plainText, sourceStart, sourceEnd, zoom = 100 }: DocxViewerProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
@@ -99,8 +100,8 @@ export function DocxViewer({ url, sourceQuote, plainText, sourceStart, sourceEnd
       <div ref={containerRef}
         className="mx-auto bg-white shadow-lg rounded-lg overflow-hidden
                    [&_.docx-wrapper]:p-0 [&_.docx-wrapper_section]:!max-w-none"
-        style={{ transform: `scale(${scale})`, transformOrigin: 'top left',
-                 width: `${100 / scale}%` }} />
+        style={{ transform: `scale(${scale * zoom / 100})`, transformOrigin: 'top left',
+                 width: `${10000 / (scale * zoom)}%` }} />
     </div>
   );
 }
