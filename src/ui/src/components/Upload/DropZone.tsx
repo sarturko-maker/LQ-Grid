@@ -14,6 +14,7 @@ export function DropZone() {
   const [customCols, setCustomCols] = useState<CustomColumn[]>([{ label: '', prompt: '' }]);
   const [error, setError] = useState('');
   const [engine, setEngine] = useState<'claude' | 'isaacus'>('claude');
+  const [apiKey, setApiKey] = useState('');
   const ref = useRef<HTMLInputElement>(null);
 
   const validCustom = customCols.filter(c => c.label && c.prompt).length;
@@ -38,6 +39,7 @@ export function DropZone() {
       form.append('custom_columns',
         JSON.stringify(customCols.filter(c => c.label && c.prompt)));
     form.append('engine', engine);
+    if (engine === 'isaacus' && apiKey) form.append('api_key', apiKey);
     try {
       const r = await fetch(`${RELAY}/upload`, { method: 'POST', body: form });
       if (!r.ok) throw new Error();
@@ -63,34 +65,17 @@ export function DropZone() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className={`w-full max-w-lg border-2 border-dashed rounded-xl p-12 text-center
           ${phase === 'done' ? 'border-emerald-300 bg-emerald-50' : 'border-slate-300'}`}>
-          {phase !== 'done' ? (
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+          {phase !== 'done' ? (<>
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-3" />
               <p className="text-lg font-semibold text-slate-700">
-                {phase === 'uploading'
-                  ? `Uploading ${files.length} files...` : 'Processing...'}
-              </p>
-              {phase === 'processing' && (
-                <p className="text-sm text-slate-500">
-                  {engine === 'isaacus'
-                    ? 'Isaacus is extracting data'
-                    : 'Claude is converting and extracting data'}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-4">
-              <div className="p-4 bg-emerald-100 rounded-full">
-                <Check className="w-8 h-8 text-emerald-600" />
-              </div>
-              <p className="text-lg font-semibold text-emerald-700">
-                {files.length} contracts uploaded
-              </p>
-              <p className="text-sm text-emerald-600">
-                Grid will populate automatically
-              </p>
-            </div>
-          )}
+                {phase === 'uploading' ? `Uploading ${files.length} files...` : 'Processing...'}</p>
+              {phase === 'processing' && <p className="text-sm text-slate-500 mt-1">
+                {engine === 'isaacus' ? 'Isaacus is extracting data' : 'Claude is converting and extracting data'}</p>}
+          </>) : (<>
+              <Check className="w-8 h-8 text-emerald-600 mx-auto mb-3" />
+              <p className="text-lg font-semibold text-emerald-700">{files.length} contracts uploaded</p>
+              <p className="text-sm text-emerald-600 mt-1">Grid will populate automatically</p>
+          </>)}
         </div>
       </div>
     );
@@ -175,6 +160,13 @@ export function DropZone() {
               </button>
             ))}
           </div>
+          {engine === 'isaacus' && (
+            <input type="password" value={apiKey} placeholder="Isaacus API key (or leave blank if set in .env)"
+              onChange={e => setApiKey(e.target.value)}
+              className="mt-2 w-80 mx-auto block px-3 py-1.5 text-xs border border-slate-200
+                rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500
+                focus:border-transparent placeholder:text-slate-400" />
+          )}
         </div>
 
         {/* CTA */}

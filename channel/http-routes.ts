@@ -111,11 +111,13 @@ async function handleUpload(req: Request, ctx: RouteContext) {
   let schema = 'consent-review'
   let customColumns = ''
   let engine = 'claude'
+  let apiKey = ''
 
   for (const [key, value] of formData.entries()) {
     if (key === 'schema' && typeof value === 'string') { schema = value; continue }
     if (key === 'custom_columns' && typeof value === 'string') { customColumns = value; continue }
     if (key === 'engine' && typeof value === 'string') { engine = value; continue }
+    if (key === 'api_key' && typeof value === 'string') { apiKey = value; continue }
     if (!(value instanceof File)) continue
     const name = value.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const buf = await value.arrayBuffer()
@@ -144,7 +146,7 @@ async function handleUpload(req: Request, ctx: RouteContext) {
         `Use the Isaacus extraction pipeline (Preview):\n` +
         `1. Convert documents: python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
         `2. ${schemaInstruction}\n` +
-        `3. Run: python3 src/pipeline/isaacus_extract.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
+        `3. Run: ${apiKey ? `ISAACUS_API_KEY=${apiKey} ` : ''}python3 src/pipeline/isaacus_extract.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
         `4. Build manifest: python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
         `5. Copy: cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +
         `6. Reply confirming how many documents were processed`
