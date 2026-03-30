@@ -2,7 +2,7 @@
 
 AI-powered bulk contract review. Drop contracts, get a structured grid with source-highlighted extractions.
 
-Built on [Claude Code](https://claude.ai/claude-code) — Claude reads the contracts, extracts structured data, and powers an interactive review interface.
+Built on [Claude Code](https://claude.ai/claude-code) — Claude reads the contracts, extracts structured data, and powers an interactive review interface. Optionally uses [Isaacus](https://isaacus.com/) legal NLP models for faster extraction (Preview).
 
 ## Important Disclaimer
 
@@ -20,7 +20,8 @@ Built on [Claude Code](https://claude.ai/claude-code) — Claude reads the contr
 
 LQ Grid turns a folder of PDF and DOCX contracts into a structured, interactive review grid — the kind of spreadsheet M&A lawyers build manually over weeks.
 
-- **Extraction**: Claude reads each contract and extracts structured fields (counterparty, assignment clauses, change of control, governing law, etc.)
+- **Schema picker**: Choose from built-in extraction templates (M&A DD, consent review, GDPR) or define custom columns — previews show every column before you start
+- **Two extraction engines**: Claude (Sonnet agents read full contracts) or Isaacus (Preview — legal NLP models, ~10x faster for structured fields)
 - **Source highlighting**: Click any cell, click "View Source" — the original PDF or DOCX opens with the exact clause highlighted in yellow
 - **Analyst chat**: Ask questions about the reviewed contracts in natural language
 - **Counterparty profiles**: Click a counterparty name to see all their agreements, risk summary, and consent tracking
@@ -33,6 +34,7 @@ LQ Grid turns a folder of PDF and DOCX contracts into a structured, interactive 
 - [Bun](https://bun.sh/) (for the channel server)
 - [Node.js](https://nodejs.org/) 18+ (for the UI)
 - Python 3.10+ (for document conversion)
+- [Isaacus API key](https://isaacus.com/) (optional — for the Isaacus extraction engine)
 
 ## Quick Start
 
@@ -45,21 +47,17 @@ cd LQ-Grid
 pip install -r requirements.txt
 cd src/ui && npm install && cd ../..
 
-# 3. Start the UI (keep this terminal open)
+# 3. (Optional) Set up Isaacus for faster extraction
+echo 'ISAACUS_API_KEY=iuak_v1_YOUR_KEY' > .env
+
+# 4. Start the UI (keep this terminal open)
 cd src/ui && npm run dev
 
-# 4. In another terminal, start Claude Code with the channel
+# 5. In another terminal, start Claude Code with the channel
 claude --dangerously-load-development-channels server:lq-ui-bridge
-
-# 5. Drop your contracts into data/contracts/ and tell Claude:
 ```
 
-```
-I have contracts in data/contracts/. Review them for M&A consent
-and change of control issues. Use the consent-review schema.
-```
-
-Claude converts the documents, extracts data in parallel using Sonnet, builds the grid, and the UI populates automatically at http://localhost:5173.
+Open http://localhost:5173, drop your contracts, pick a schema (or define custom columns), choose your extraction engine, and click Start. The grid populates automatically.
 
 ## How It Works
 
@@ -67,36 +65,40 @@ Claude converts the documents, extracts data in parallel using Sonnet, builds th
   Contracts (PDF/DOCX)
          |
          v
-  +--------------+     +------------------+     +-----------+
-  | convert.py   | --> | Claude (Sonnet)  | --> | Grid UI   |
-  | PDF/DOCX→txt |     | Extract fields   |     | React app |
-  +--------------+     | Quote verbatim   |     +-----------+
-                        | Return offsets   |          |
-                        +------------------+          v
-                                                 Click cell
-                                                     |
-                                                     v
-                                              +-------------+
-                                              | View Source  |
-                                              | Highlighted  |
-                                              | in original  |
-                                              | PDF or DOCX  |
-                                              +-------------+
+  +--------------+     +------------------+
+  | convert.py   | --> | Engine choice:   |
+  | PDF/DOCX→txt |     |                  |
+  +--------------+     | Claude (Sonnet)  |     +-----------+
+                        |   Full-document  | --> | Grid UI   |
+                        |   LLM extraction |     | React app |
+                        |        OR        |     +-----------+
+                        | Isaacus (Preview)|          |
+                        |   Enrichment +   |          v
+                        |   QA + Classify  |     View Source
+                        +------------------+     Highlighted
+                                                 in original
 ```
 
 ### Architecture
 
-Claude Code is the extraction engine. The React UI communicates with Claude Code via an MCP channel server on port 3002. The UI never calls an LLM directly — all intelligence goes through Claude Code.
+Claude Code is the extraction engine. The React UI communicates with Claude Code via an MCP channel server (`channel/ui-bridge.ts` + `channel/http-routes.ts`) on port 3002. The UI never calls an LLM directly — all intelligence goes through Claude Code.
+
+**Claude engine** (default): Sonnet agents read full contract text and extract all columns. Thorough but slower for large batches.
+
+**Isaacus engine** (Preview): Legal NLP models from [Isaacus](https://isaacus.com/). Enrichment for structured fields (counterparty, dates, jurisdiction), extractive QA for text fields, universal classification for boolean/enum fields. All documents are batched per column (~25 API calls instead of ~220). Much faster, but analytical fields (key risks, summaries) may have gaps.
 
 ### Extraction Schemas
 
-Three built-in schemas for different review types:
+Three built-in schemas, plus custom column support:
 
 | Schema | Columns | Use Case |
 |--------|---------|----------|
-| `consent-review.json` | 11 | M&A change of control / consent review |
+| `consent-review.json` | 15 | M&A change of control / consent review |
 | `ma-dd-standard.json` | 14 | Standard M&A due diligence |
 | `data-mapping.json` | 12 | GDPR data processing mapping |
+| Custom | User-defined | Define your own columns at upload time |
+
+The upload screen shows every column in each schema as preview pills, so you know exactly what you're getting before extraction starts.
 
 ### Source Highlighting
 
@@ -110,37 +112,48 @@ When Claude extracts a clause, it quotes the text verbatim. At display time, the
 
 ```
 LQ-Grid/
-  CLAUDE.md              # Instructions for Claude Code
-  requirements.txt       # Python dependencies
+  CLAUDE.md                # Instructions for Claude Code
+  requirements.txt         # Python dependencies
+  .env                     # Isaacus API key (gitignored)
   channel/
-    ui-bridge.ts         # MCP channel server (Bun)
+    ui-bridge.ts           # MCP channel server (Bun)
+    http-routes.ts         # HTTP route handlers (upload, clear, groups)
   src/
-    pipeline/            # Python scripts
-      convert.py         #   PDF/DOCX → plain text
-      format_for_ui.py   #   Merge results → manifest (no LLM)
-      export.py          #   Manifest → XLSX/CSV
-      md_to_docx.py      #   Markdown → Word
-      schema.py          #   Schema validation
-    ui/                  # React app
+    pipeline/              # Python scripts
+      convert.py           #   PDF/DOCX → plain text
+      format_for_ui.py     #   Merge results → manifest (no LLM)
+      isaacus_extract.py   #   Isaacus extraction pipeline (Preview)
+      isaacus_strategies.py #  Batched QA, classification, enrichment
+      group_documents.py   #   Document grouping by party/relationship
+      export.py            #   Manifest → XLSX/CSV
+      md_to_docx.py        #   Markdown → Word
+      schema.py            #   Schema validation
+    ui/                    # React app
       src/
         components/
-          Grid/          #   DataGrid, cells, filters, headers
-          Sidebar/       #   Cell detail, document viewer, profiles
-          Chat/          #   Analyst chat
-          Upload/        #   Drag-and-drop zone
-        hooks/           #   State management
-        lib/             #   Utilities, highlighting, export
+          Grid/            #   DataGrid, cells, filters, headers
+          Sidebar/         #   Cell detail, document viewer, profiles
+          Chat/            #   Analyst chat
+          Upload/          #   DropZone, SchemaPicker, CustomSchemaEditor
+        hooks/             #   State management
+        lib/               #   Utilities, highlighting, export
   templates/
-    schemas/             # Extraction schemas (JSON)
-    letters/             # Letter templates
+    schemas/               # Extraction schemas (JSON)
+    letters/               # Letter templates
   data/
-    contracts/           # Drop your documents here
-    output/              # Generated files (gitignored)
+    contracts/             # Drop your documents here
+    output/                # Generated files (gitignored)
   .claude/
-    agents/reviewer.md   # Reviewer teammate instructions
+    agents/reviewer.md     # Reviewer teammate instructions
 ```
 
 ## Features
+
+### Upload & Schema Selection
+- Drag-and-drop or click to browse (PDF, DOCX, TXT)
+- Schema picker with column preview pills for each template
+- Custom schema editor — define your own extraction columns inline
+- Engine toggle: Claude (thorough) or Isaacus (fast, Preview)
 
 ### Grid
 - Column filters (dropdown for yes/no, text search for strings)
@@ -150,6 +163,7 @@ LQ-Grid/
 - Row numbers
 - Drag-to-reorder columns
 - Semantic cell colouring (buyer's M&A perspective)
+- Clear grid button to reset and start fresh
 
 ### Document Preview
 - PDFs rendered with text layer (via pdf.js)
@@ -189,6 +203,14 @@ Controls how Claude extracts data. Each reviewer agent reads contract text files
 ### `CLAUDE.md`
 
 Full instructions for Claude Code — the extraction workflow, channel event handling, highlighting architecture, and project rules.
+
+### `.env`
+
+Isaacus API key for the Isaacus extraction engine (optional). This file is gitignored and never committed.
+
+```
+ISAACUS_API_KEY=iuak_v1_YOUR_KEY_HERE
+```
 
 ## License
 
