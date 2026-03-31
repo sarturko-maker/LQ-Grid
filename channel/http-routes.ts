@@ -4,8 +4,17 @@
  */
 
 import { writeFileSync, readFileSync, mkdirSync, readdirSync, statSync, existsSync, unlinkSync, rmSync } from 'fs'
-import { basename } from 'path'
+import { basename, normalize, resolve } from 'path'
 import { join } from 'path'
+
+const VALID_SCHEMAS = new Set(['consent-review', 'ma-dd-standard', 'data-mapping', 'custom'])
+const VALID_ENGINES = new Set(['claude', 'isaacus'])
+
+/** Check that a resolved path stays within the allowed base directory. */
+function isSafePath(base: string, requested: string): boolean {
+  const norm = normalize(resolve(requested))
+  return norm.startsWith(normalize(resolve(base)))
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -76,8 +85,9 @@ async function handleGetResponse(url: URL, ctx: RouteContext) {
 
 function handleListFiles(url: URL, ctx: RouteContext) {
   const rel = url.pathname.slice(7)
-  if (rel.includes('..')) return new Response('forbidden', { status: 403, headers: CORS })
   const dirPath = join(ctx.project, 'data', 'output', rel)
+  if (!isSafePath(join(ctx.project, 'data', 'output'), dirPath))
+    return new Response('forbidden', { status: 403, headers: CORS })
   try {
     const entries = readdirSync(dirPath)
       .filter(f => !f.startsWith('.'))
@@ -90,8 +100,9 @@ function handleListFiles(url: URL, ctx: RouteContext) {
 
 async function handleDownload(url: URL, ctx: RouteContext) {
   const rel = url.pathname.slice(10)
-  if (rel.includes('..')) return new Response('forbidden', { status: 403, headers: CORS })
   let filePath = join(ctx.project, 'data', 'output', rel)
+  if (!isSafePath(join(ctx.project, 'data'), filePath))
+    return new Response('forbidden', { status: 403, headers: CORS })
   let file = Bun.file(filePath)
   if (!(await file.exists())) {
     filePath = join(ctx.project, 'data', rel)
@@ -99,7 +110,7 @@ async function handleDownload(url: URL, ctx: RouteContext) {
   }
   if (await file.exists()) {
     return new Response(file, {
-      headers: { ...CORS, 'Content-Disposition': `attachment; filename="${rel.split('/').pop()}"` },
+      headers: { ...CORS, 'Content-Disposition': `attachment; filename="${(rel.split('/').pop() || 'download').replace(/"/g, '_')}"` },
     })
   }
   return new Response('not found', { status: 404, headers: CORS })
@@ -114,13 +125,17 @@ async function handleUpload(req: Request, ctx: RouteContext) {
   let apiKey = ''
 
   for (const [key, value] of formData.entries()) {
-    if (key === 'schema' && typeof value === 'string') { schema = value; continue }
+    if (key === 'schema' && typeof value === 'string') {
+      schema = VALID_SCHEMAS.has(value) ? value : 'consent-review'; continue }
     if (key === 'custom_columns' && typeof value === 'string') { customColumns = value; continue }
-    if (key === 'engine' && typeof value === 'string') { engine = value; continue }
+    if (key === 'engine' && typeof value === 'string') {
+      engine = VALID_ENGINES.has(value) ? value : 'claude'; continue }
     if (key === 'api_key' && typeof value === 'string') { apiKey = value; continue }
     if (!(value instanceof File)) continue
-    const name = value.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    let name = value.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200)
+    if (name.startsWith('.')) name = '_' + name
     const buf = await value.arrayBuffer()
+    if (buf.byteLength > 50 * 1024 * 1024) continue  // 50MB limit
     writeFileSync(join(ctx.project, 'data', 'contracts', name), Buffer.from(buf))
     const publicDir = join(ctx.project, 'src', 'ui', 'public', 'data', 'contracts')
     mkdirSync(publicDir, { recursive: true })
@@ -141,13 +156,16 @@ async function handleUpload(req: Request, ctx: RouteContext) {
     const fileList = files.map(f => `- ${f}`).join('\n')
 
     let prompt: string
-    const envPrefix = apiKey ? `ISAACUS_API_KEY=${apiKey} ` : ''
+    // Write API key to .env if provided (never include in prompts)
+    if (apiKey) {
+      writeFileSync(join(ctx.project, '.env'), `ISAACUS_API_KEY=${apiKey}\n`)
+    }
     if (engine === 'isaacus') {
       prompt = `${files.length} contracts have been uploaded to data/contracts/:\n${fileList}\n\n` +
         `Use the Isaacus RAG pipeline (Preview):\n` +
         `1. Convert documents: python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
         `2. ${schemaInstruction}\n` +
-        `3. Run RAG: ${envPrefix}python3 src/pipeline/isaacus_rag.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
+        `3. Run RAG: python3 src/pipeline/isaacus_rag.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
         `4. Read data/output/results/rag-prompts.json — it contains agent batches with pre-selected clause excerpts per document\n` +
         `5. For each agent batch: spawn a Sonnet reviewer agent. The agent receives ONLY the relevant clause excerpts (not full documents). ` +
         `Each agent should extract all listed columns using the provided clauses, quoting verbatim with character offsets from the original document. ` +
