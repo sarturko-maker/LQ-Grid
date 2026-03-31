@@ -141,15 +141,21 @@ async function handleUpload(req: Request, ctx: RouteContext) {
     const fileList = files.map(f => `- ${f}`).join('\n')
 
     let prompt: string
+    const envPrefix = apiKey ? `ISAACUS_API_KEY=${apiKey} ` : ''
     if (engine === 'isaacus') {
       prompt = `${files.length} contracts have been uploaded to data/contracts/:\n${fileList}\n\n` +
-        `Use the Isaacus extraction pipeline (Preview):\n` +
+        `Use the Isaacus RAG pipeline (Preview):\n` +
         `1. Convert documents: python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
         `2. ${schemaInstruction}\n` +
-        `3. Run: ${apiKey ? `ISAACUS_API_KEY=${apiKey} ` : ''}python3 src/pipeline/isaacus_extract.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
-        `4. Build manifest: python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
-        `5. Copy: cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +
-        `6. Reply confirming how many documents were processed`
+        `3. Run RAG: ${envPrefix}python3 src/pipeline/isaacus_rag.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
+        `4. Read data/output/results/rag-prompts.json — it contains agent batches with pre-selected clause excerpts per document\n` +
+        `5. For each agent batch: spawn a Sonnet reviewer agent. The agent receives ONLY the relevant clause excerpts (not full documents). ` +
+        `Each agent should extract all listed columns using the provided clauses, quoting verbatim with character offsets from the original document. ` +
+        `Write results to data/output/results/{batch_name}.json in the standard reviewer format.\n` +
+        `6. Launch up to 10 agents in parallel per wave. After each wave, rebuild manifest and copy to UI:\n` +
+        `   python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
+        `   cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +
+        `7. Reply confirming how many documents were processed`
     } else {
       prompt = `${files.length} contracts have been uploaded to data/contracts/:\n${fileList}\n\n` +
         `Follow the Full Extraction Workflow in CLAUDE.md:\n` +
