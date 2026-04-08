@@ -42,4 +42,8 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+# Claude Code — protect credentials and local config
+.claude/.credentials.json
+.claude/.claude.json
 .claude/settings.local.json
+.claude/backups/
