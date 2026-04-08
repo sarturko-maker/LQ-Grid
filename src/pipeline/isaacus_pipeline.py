@@ -176,14 +176,20 @@ def main():
     isaacus_out = out_dir / "batch-isaacus.json"
     isaacus_out.write_text(json.dumps(results, indent=2))
 
-    # Phase 7: Sonnet prompts — ALL columns, 1 doc per agent
+    # Phase 7: Write per-agent prompt files (ready to use, no orchestrator prep)
     agents = _build_agents(names, results, contexts, columns, all_findings, n)
+    prompts_dir = out_dir / "agent_prompts"
+    prompts_dir.mkdir(parents=True, exist_ok=True)
+    for a in agents:
+        (prompts_dir / f"{a['batch_name']}.json").write_text(
+            json.dumps(a, indent=2))
+    # Also write the full list for the orchestrator
     rag_out = out_dir / "rag-prompts.json"
     rag_out.write_text(json.dumps({"agents": agents}, indent=2))
 
     hints = sum(1 for f in all_findings for v in f.values() if v)
     print(f"[pipeline] {hints} isaacus hints across {len(columns)} columns")
-    print(f"[pipeline] {len(agents)} Sonnet agents (1 per doc, all columns)")
+    print(f"[pipeline] {len(agents)} agents ready in {prompts_dir}/")
 
 
 if __name__ == "__main__":

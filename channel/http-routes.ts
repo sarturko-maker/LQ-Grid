@@ -161,23 +161,25 @@ async function handleUpload(req: Request, ctx: RouteContext) {
       writeFileSync(join(ctx.project, '.env'), `ISAACUS_API_KEY=${apiKey}\n`)
     }
     if (engine === 'isaacus') {
-      prompt = `${files.length} contracts have been uploaded to data/contracts/:\n${fileList}\n\n` +
-        `Use the Isaacus hybrid pipeline (Isaacus finds, Sonnet verifies ALL columns from chunks):\n` +
-        `1. Convert documents: python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
-        `2. ${schemaInstruction}\n` +
-        `3. Run Isaacus pipeline: python3 src/pipeline/isaacus_pipeline.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
-        `   Isaacus produces preliminary findings for ALL columns (enrichment + extraction). Nothing is final until Sonnet verifies.\n` +
-        `4. Read data/output/results/rag-prompts.json — 1 agent per document, ALL columns.\n` +
-        `   Spawn Sonnet reviewer agents using the isaacus-reviewer teammate (.claude/agents/isaacus-reviewer.md).\n` +
-        `   1 agent per document, up to 10 in parallel per wave.\n` +
-        `   IMPORTANT: Agents must NOT read the full document text. They work from clause excerpts only.\n` +
-        `   For each agent, pass: the document's context_clauses, all column definitions with isaacus_findings,\n` +
-        `   and the clause_index path (data/output/results/clause_index) for agentic search.\n` +
-        `   Agents write results to data/output/results/{batch_name}.json in the standard reviewer format.\n` +
-        `5. After each wave, rebuild manifest and copy to UI:\n` +
-        `   python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
-        `   cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +
-        `6. Reply confirming completion`
+      prompt = `${files.length} contracts uploaded to data/contracts/:\n${fileList}\n\n` +
+        `Run these 3 steps:\n\n` +
+        `STEP 1 — Convert + Isaacus:\n` +
+        `python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
+        `${schema === 'custom' && customColumns ? schemaInstruction + '\n' : ''}` +
+        `python3 src/pipeline/isaacus_pipeline.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n\n` +
+        `STEP 2 — Spawn reviewers:\n` +
+        `Each file in data/output/results/agent_prompts/ is a ready-to-use JSON for one reviewer agent.\n` +
+        `For each file: read it, then spawn a Sonnet agent using the isaacus-reviewer teammate.\n` +
+        `Pass the JSON content as the agent prompt — it contains clause excerpts, column definitions, and Isaacus findings.\n` +
+        `The agent extracts all columns from clause excerpts ONLY (no full doc reads). If clauses are insufficient,\n` +
+        `the agent uses: python3 src/pipeline/isaacus_search.py --doc <filename> --query "<terms>" --index data/output/results/clause_index\n` +
+        `Agent writes output to data/output/results/<batch_name>.json.\n` +
+        `CRITICAL: Launch ALL agents in a SINGLE message with multiple Agent tool calls. Do NOT read files one at a time.\n` +
+        `Read all prompt files first, then spawn all agents at once (max 10 per wave).\n\n` +
+        `STEP 3 — Rebuild manifest:\n` +
+        `python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
+        `cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +
+        `Reply confirming completion.`
     } else {
       prompt = `${files.length} contracts have been uploaded to data/contracts/:\n${fileList}\n\n` +
         `Follow the Full Extraction Workflow in CLAUDE.md:\n` +
