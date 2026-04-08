@@ -1,115 +1,22 @@
-"""Batched Isaacus extraction strategies.
+"""Batched Isaacus extraction on full documents (backward compat).
 
-All functions accept lists of texts and return lists of cells,
-so the caller can process all documents in one API call per column.
+For segment-focused extraction, see isaacus_segment.py.
 """
 
-import re
-
-ENRICHMENT_COLUMNS = {
-    'counterparty', 'our_party', 'contract_type',
-    'date', 'effective_date', 'expiry_date', 'governing_law',
-}
-
-QA_BATCH = 3  # max documents per QA/classification call (large docs cause 500s)
-
-
-def conf(score: float) -> str:
-    if score > 0.8: return "high"
-    if score > 0.5: return "medium"
-    return "low"
-
-
-def null_cell(note: str = "Not found") -> dict:
-    return {
-        "value": None, "source_quote": None, "source_location": None,
-        "source_start": None, "source_end": None,
-        "confidence": "low", "notes": note,
-    }
-
-
-def simplify_prompt(prompt: str) -> str:
-    p = re.sub(r'(?i)quote\s.*?(?:verbatim|relevant clause)\.?\s*', '', prompt)
-    p = re.sub(r'(?i)^summari[sz]e\s+', 'What are the ', p)
-    p = re.sub(r'(?i)identify the top \d[-–]\d', 'What are the main', p)
-    p = re.sub(r'(?i)\binclude currency\.?\s*', '', p)
-    p = re.sub(r'(?i)\bif (?:so|yes),?\s*', '', p)
-    p = p.strip().rstrip('.')
-    return p + '?' if not p.endswith('?') else p
-
-
-# ── Enrichment (batch of 8) ───────────────────────────────────
-
-def batch_enrich(client, texts: list[str]) -> list:
-    """Enrich in batches of 8. Returns list of document objects (or None)."""
-    docs: list = [None] * len(texts)
-    for i in range(0, len(texts), 8):
-        batch = texts[i:i + 8]
-        try:
-            r = client.enrichments.create(
-                model="kanon-2-enricher", texts=batch, overflow_strategy="auto")
-            for j, result in enumerate(r.results):
-                docs[i + j] = result.document
-        except Exception as e:
-            print(f"  enrichment batch {i // 8}: {e}")
-    return docs
-
-
-def _cell(value, quote, start, end, confidence="high", note=None):
-    return {
-        "value": value, "source_quote": quote, "source_location": None,
-        "source_start": start, "source_end": end,
-        "confidence": confidence, "notes": note,
-    }
+from isaacus_common import ENRICHMENT_COLUMNS, conf, null_cell, cell as _cell, simplify_prompt  # noqa: F401
+from isaacus_enrich import (  # noqa: F401 — re-exported for isaacus_extract.py
+    batch_enrich, party_from_enrichment, _map_one,
+)
 
 
 def map_enrichment(doc, text: str, col_id: str) -> dict | None:
-    if col_id in ('counterparty', 'our_party'):
-        persons = [p for p in doc.persons if p.type in ('corporate', 'natural')]
-        if not persons: return None
-        p = persons[0] if col_id == 'counterparty' else (
-            persons[1] if len(persons) > 1 else None)
-        if not p: return None
-        name = text[p.name.start:p.name.end]
-        return _cell(name, name, p.name.start, p.name.end)
-    if col_id == 'contract_type' and doc.title:
-        t = text[doc.title.start:doc.title.end]
-        return _cell(t, t, doc.title.start, doc.title.end)
-    if col_id in ('date', 'effective_date'):
-        for d in doc.dates:
-            if d.type in ('effective', 'signature', 'creation') and d.mentions:
-                m = d.mentions[0]
-                return _cell(d.value, text[m.start:m.end], m.start, m.end,
-                             note=f"Date type: {d.type}")
-        if doc.dates and doc.dates[0].mentions:
-            d, m = doc.dates[0], doc.dates[0].mentions[0]
-            return _cell(d.value, text[m.start:m.end], m.start, m.end, "medium")
-        return None
-    if col_id == 'expiry_date':
-        for d in doc.dates:
-            if d.type in ('expiry', 'renewal') and d.mentions:
-                m = d.mentions[0]
-                return _cell(d.value, text[m.start:m.end], m.start, m.end)
-        return None
-    if col_id == 'governing_law' and doc.jurisdiction:
-        return _cell(doc.jurisdiction, None, None, None, "medium")
-    return None
+    """Compat wrapper: single-column enrichment mapping for isaacus_extract.py."""
+    return _map_one(doc, text, col_id)
 
+QA_BATCH = 3  # max documents per QA/classification call
 
-def party_from_enrichment(doc, text: str) -> str | None:
-    persons = [p for p in doc.persons if p.type == 'corporate']
-    if not persons: return None
-    name = text[persons[0].name.start:persons[0].name.end]
-    for s in [", Inc.", " Inc.", " LLC", " Ltd.", " Corp.",
-              " Corporation", " S.A.", " GmbH", " Limited", " Co."]:
-        name = name.replace(s, "")
-    return name.strip() or None
-
-
-# ── Batched QA ─────────────────────────────────────────────────
 
 def _qa_single(client, text: str, query: str):
-    """QA on one doc. Returns extraction or None on failure."""
     try:
         r = client.extractions.qa.create(
             model="kanon-answer-extractor", query=query,
@@ -120,7 +27,7 @@ def _qa_single(client, text: str, query: str):
 
 
 def batch_qa(client, texts: list[str], prompt: str) -> list[dict]:
-    """Run QA batched, with single-doc fallback on 500 errors."""
+    """Run QA batched on full documents, with single-doc fallback."""
     query = simplify_prompt(prompt)
     all_extractions: list = []
     for i in range(0, len(texts), QA_BATCH):
@@ -131,9 +38,12 @@ def batch_qa(client, texts: list[str], prompt: str) -> list[dict]:
                 texts=batch, top_k=3, ignore_inextractability=True)
             all_extractions.extend(r.extractions)
         except Exception:
-            # Batch failed — try each doc individually
             for t in batch:
                 all_extractions.append(_qa_single(client, t, query))
+    return _qa_extractions_to_cells(all_extractions)
+
+
+def _qa_extractions_to_cells(all_extractions: list) -> list[dict]:
     cells = []
     for ex in all_extractions:
         if ex is None:
@@ -144,7 +54,8 @@ def batch_qa(client, texts: list[str], prompt: str) -> list[dict]:
             cells.append(null_cell())
             continue
         best = answers[0]
-        val = "; ".join(a.text for a in answers[:3]) if len(answers) > 1 else best.text
+        val = ("; ".join(a.text for a in answers[:3])
+               if len(answers) > 1 else best.text)
         quotes = [{"quote": a.text, "start": a.start, "end": a.end,
                    "location": None} for a in answers]
         cells.append({
@@ -155,8 +66,6 @@ def batch_qa(client, texts: list[str], prompt: str) -> list[dict]:
         })
     return cells
 
-
-# ── Batched classification ─────────────────────────────────────
 
 def _classify_single(client, text: str, query_iql: str):
     try:
@@ -169,18 +78,25 @@ def _classify_single(client, text: str, query_iql: str):
 
 
 def _batch_classify(client, texts: list[str], query_iql: str) -> list:
-    """Classify with per-batch fallback to single-doc calls."""
     all_class: list = []
     for i in range(0, len(texts), QA_BATCH):
         batch = texts[i:i + QA_BATCH]
+        # Filter empties; keep index mapping
+        live = [(j, t) for j, t in enumerate(batch) if t.strip()]
+        if not live:
+            all_class.extend([None] * len(batch))
+            continue
         try:
             r = client.classifications.universal.create(
                 model="kanon-universal-classifier",
-                query=query_iql, texts=batch, is_iql=True)
-            all_class.extend(r.classifications)
+                query=query_iql, texts=[t for _, t in live], is_iql=True)
+            results = {j: c for (j, _), c in zip(live, r.classifications)}
         except Exception:
-            for t in batch:
-                all_class.append(_classify_single(client, t, query_iql))
+            results = {}
+            for j, t in live:
+                results[j] = _classify_single(client, t, query_iql)
+        for j in range(len(batch)):
+            all_class.append(results.get(j))
     return all_class
 
 
@@ -198,19 +114,20 @@ def batch_clause(client, texts: list[str], prompt: str) -> list[dict]:
             continue
         top = sorted(c.chunks, key=lambda x: x.score, reverse=True)[:3]
         best = top[0]
-        ctx = [ch.text for ch in top]
         quotes = [{"quote": ch.text, "start": ch.start, "end": ch.end,
                    "location": None} for ch in top]
         if c.score < 0.3:
-            cells.append({**null_cell("Needs LLM synthesis"), "_context": ctx})
+            cells.append({**null_cell("Needs LLM synthesis"),
+                          "_context": [ch.text for ch in top]})
         else:
             cells.append({
-                "value": "; ".join(ch.text for ch in top) if len(top) > 1
-                else best.text,
+                "value": ("; ".join(ch.text for ch in top)
+                          if len(top) > 1 else best.text),
                 "source_quote": best.text, "source_location": None,
                 "source_start": best.start, "source_end": best.end,
                 "source_quotes": quotes if len(quotes) > 1 else None,
-                "confidence": conf(best.score), "notes": None, "_context": ctx,
+                "confidence": conf(best.score), "notes": None,
+                "_context": [ch.text for ch in top],
             })
     return cells
 

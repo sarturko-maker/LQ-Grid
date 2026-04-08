@@ -1,4 +1,4 @@
-"""Shared utilities for the Isaacus RAG pipeline."""
+"""Shared utilities for the Isaacus hybrid pipeline."""
 
 import os
 import re
@@ -52,3 +52,43 @@ def simplify_prompt(prompt: str) -> str:
     p = re.sub(r'(?i)\bif (?:so|yes),?\s*', '', p)
     p = p.strip().rstrip('.')
     return p + '?' if not p.endswith('?') else p
+
+
+# ── Segment text helpers ─────────────────────────────────────
+
+def build_segment_text(clauses: list[dict]) -> tuple[str, list[tuple]]:
+    """Concatenate clause texts with \\n\\n separators.
+
+    Returns (combined_text, offset_map) where each entry in offset_map is
+    (seg_start_in_combined, seg_end_in_combined, orig_start, orig_end).
+    """
+    parts: list[str] = []
+    offset_map: list[tuple] = []
+    pos = 0
+    for c in clauses:
+        text = c["text"]
+        if parts:
+            pos += 2  # \n\n separator
+        seg_start = pos
+        seg_end = pos + len(text)
+        offset_map.append((seg_start, seg_end, c["start"], c["end"]))
+        parts.append(text)
+        pos = seg_end
+    return "\n\n".join(parts), offset_map
+
+
+def remap_offsets(start: int, end: int,
+                  offset_map: list[tuple]) -> tuple[int | None, int | None]:
+    """Map answer offsets from combined-text space to original document positions.
+
+    If the span crosses segment boundaries, clamps to the segment containing
+    the majority of the answer.
+    """
+    if not offset_map:
+        return None, None
+    for seg_start, seg_end, orig_start, orig_end in offset_map:
+        if start < seg_end and end > seg_start:
+            delta_s = max(0, start - seg_start)
+            delta_e = min(end - seg_start, seg_end - seg_start)
+            return orig_start + delta_s, orig_start + delta_e
+    return None, None

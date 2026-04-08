@@ -162,18 +162,25 @@ async function handleUpload(req: Request, ctx: RouteContext) {
     }
     if (engine === 'isaacus') {
       prompt = `${files.length} contracts have been uploaded to data/contracts/:\n${fileList}\n\n` +
-        `Use the Isaacus RAG pipeline (Preview):\n` +
+        `Use the Isaacus hybrid pipeline (Isaacus finds, Sonnet reasons on top):\n` +
         `1. Convert documents: python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
         `2. ${schemaInstruction}\n` +
-        `3. Run RAG: python3 src/pipeline/isaacus_rag.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
-        `4. Read data/output/results/rag-prompts.json — it contains agent batches with pre-selected clause excerpts per document\n` +
-        `5. For each agent batch: spawn a Sonnet reviewer agent. The agent receives ONLY the relevant clause excerpts (not full documents). ` +
-        `Each agent should extract all listed columns using the provided clauses, quoting verbatim with character offsets from the original document. ` +
-        `Write results to data/output/results/{batch_name}.json in the standard reviewer format.\n` +
-        `6. Launch up to 10 agents in parallel per wave. After each wave, rebuild manifest and copy to UI:\n` +
+        `3. Run Isaacus pipeline: python3 src/pipeline/isaacus_pipeline.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
+        `   Isaacus fills enrichment columns (counterparty, dates, governing law) as FINAL — zero hallucination.\n` +
+        `   For ALL other columns, Isaacus produces preliminary findings (retrieved clauses, classifications, entity links).\n` +
+        `4. Read data/output/results/rag-prompts.json — it has agent batches for ALL non-enrichment columns.\n` +
+        `   Each column includes Isaacus's preliminary finding (isaacus_finding) as grounded context.\n` +
+        `   Spawn Sonnet reviewer agents per batch. Each agent should:\n` +
+        `   - Use Isaacus's retrieved clauses and preliminary findings as a starting point\n` +
+        `   - VERIFY Isaacus findings — if Isaacus found it, confirm with exact offsets and proper formatting\n` +
+        `   - FILL GAPS — if Isaacus missed a provision (different terminology, scattered clauses), search the full document\n` +
+        `   - FORMAT output per the column prompt: verbatim quotes, summaries, Yes/No, or enum values as required\n` +
+        `   - Write results to data/output/results/{batch_name}.json in the standard reviewer format.\n` +
+        `   - Launch up to 10 agents per wave.\n` +
+        `5. After each wave, rebuild manifest and copy to UI:\n` +
         `   python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
         `   cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +
-        `7. Reply confirming how many documents were processed`
+        `6. Reply confirming completion`
     } else {
       prompt = `${files.length} contracts have been uploaded to data/contracts/:\n${fileList}\n\n` +
         `Follow the Full Extraction Workflow in CLAUDE.md:\n` +

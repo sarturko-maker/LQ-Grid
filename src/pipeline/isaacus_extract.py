@@ -1,7 +1,11 @@
-"""Isaacus extraction pipeline (Preview) — column-first, batched.
+"""DEPRECATED: Use isaacus_pipeline.py instead.
 
-Sends all documents in one API call per column instead of per document.
-11 docs × 14 cols = ~25 API calls (not ~220).
+isaacus_pipeline.py uses segment-level retrieval for better accuracy
+and routes columns intelligently between Isaacus and Sonnet.
+
+This file is kept for backward compatibility only.
+
+Original: Isaacus extraction pipeline — column-first, batched.
 """
 
 import argparse

@@ -1,7 +1,11 @@
-"""Isaacus RAG pipeline: enrich → embed → retrieve → Sonnet fills the grid.
+"""DEPRECATED: Use isaacus_pipeline.py instead.
 
-Isaacus finds the relevant clauses. Sonnet reads only those clauses.
-~50% fewer LLM tokens than reading full contracts.
+isaacus_pipeline.py fills factual columns natively via Isaacus models
+and only sends reasoning columns to Sonnet, with better retrieval.
+
+This file is kept for backward compatibility only.
+
+Original: Isaacus RAG pipeline: enrich → embed → retrieve → Sonnet fills the grid.
 
 Usage:
     python3 src/pipeline/isaacus_rag.py \
