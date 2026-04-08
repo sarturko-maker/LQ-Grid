@@ -167,15 +167,10 @@ async function handleUpload(req: Request, ctx: RouteContext) {
         `python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
         `${schema === 'custom' && customColumns ? schemaInstruction + '\n' : ''}` +
         `python3 src/pipeline/isaacus_pipeline.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n\n` +
-        `STEP 2 — Spawn reviewers:\n` +
-        `Each file in data/output/results/agent_prompts/ is a ready-to-use JSON for one reviewer agent.\n` +
-        `For each file: read it, then spawn a Sonnet agent using the isaacus-reviewer teammate.\n` +
-        `Pass the JSON content as the agent prompt — it contains clause excerpts, column definitions, and Isaacus findings.\n` +
-        `The agent extracts all columns from clause excerpts ONLY (no full doc reads). If clauses are insufficient,\n` +
-        `the agent uses: python3 src/pipeline/isaacus_search.py --doc <filename> --query "<terms>" --index data/output/results/clause_index\n` +
-        `Agent writes output to data/output/results/<batch_name>.json.\n` +
-        `CRITICAL: Launch ALL agents in a SINGLE message with multiple Agent tool calls. Do NOT read files one at a time.\n` +
-        `Read all prompt files first, then spawn all agents at once (max 10 per wave).\n\n` +
+        `STEP 2 — Run parallel reviewers (single bash command, no agent spawning needed):\n` +
+        `bash src/pipeline/run_reviewers.sh --prompts data/output/results/agent_prompts --output data/output/results --parallel 10\n` +
+        `This launches independent claude -p sessions in parallel (10 at a time), each processing one document.\n` +
+        `Wait for it to complete — it prints progress and timing.\n\n` +
         `STEP 3 — Rebuild manifest:\n` +
         `python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
         `cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +
