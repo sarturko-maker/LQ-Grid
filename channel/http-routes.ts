@@ -166,17 +166,17 @@ async function handleUpload(req: Request, ctx: RouteContext) {
         `1. Convert documents: python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
         `2. ${schemaInstruction}\n` +
         `3. Run Isaacus pipeline: python3 src/pipeline/isaacus_pipeline.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
-        `   Isaacus fills enrichment columns (counterparty, dates, governing law) as FINAL — zero hallucination.\n` +
-        `   For ALL other columns, Isaacus produces preliminary findings (retrieved clauses, classifications, entity links).\n` +
-        `4. Read data/output/results/rag-prompts.json — it has agent batches for ALL non-enrichment columns.\n` +
-        `   Each column includes Isaacus's preliminary finding (isaacus_finding) as grounded context.\n` +
-        `   Spawn Sonnet reviewer agents per batch. Each agent should:\n` +
-        `   - Use Isaacus's retrieved clauses and preliminary findings as a starting point\n` +
-        `   - VERIFY Isaacus findings — if Isaacus found it, confirm with exact offsets and proper formatting\n` +
-        `   - FILL GAPS — if Isaacus missed a provision (different terminology, scattered clauses), search the full document\n` +
-        `   - FORMAT output per the column prompt: verbatim quotes, summaries, Yes/No, or enum values as required\n` +
+        `   Isaacus fills enrichment columns as FINAL. For all others, produces preliminary findings + clause index.\n` +
+        `4. Read data/output/results/rag-prompts.json — 1 agent per document, all non-enrichment columns.\n` +
+        `   Each column has Isaacus clause excerpts and optional isaacus_finding (preliminary value with offsets).\n` +
+        `   Spawn Sonnet reviewer agents — 1 per document, up to 10 in parallel per wave. Each agent should:\n` +
+        `   - Work from the provided clause excerpts (NOT the full document text)\n` +
+        `   - VERIFY Isaacus findings — if isaacus_finding exists, confirm with exact offsets and proper formatting\n` +
+        `   - If a column has no finding and no relevant clauses, use the Isaacus search tool to find clauses:\n` +
+        `     python3 src/pipeline/isaacus_search.py --doc <filename> --query "<alternative search terms>" --index data/output/results/clause_index --top_k 5\n` +
+        `   - Only read the full document text (data/output/texts/<filename>) as a last resort\n` +
+        `   - FORMAT output per the column prompt: verbatim quotes, summaries, Yes/No, or enum values\n` +
         `   - Write results to data/output/results/{batch_name}.json in the standard reviewer format.\n` +
-        `   - Launch up to 10 agents per wave.\n` +
         `5. After each wave, rebuild manifest and copy to UI:\n` +
         `   python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
         `   cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +

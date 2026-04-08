@@ -1,11 +1,4 @@
-"""Isaacus hybrid pipeline: Isaacus finds (zero hallucination), Sonnet reasons on top.
-
-Usage:
-    python3 src/pipeline/isaacus_pipeline.py \
-        --texts data/output/texts/ \
-        --schema templates/schemas/consent-review.json \
-        --output data/output/results/
-"""
+"""Isaacus hybrid pipeline: Isaacus finds (zero hallucination), Sonnet reasons on top."""
 
 import argparse
 import json
@@ -52,11 +45,11 @@ def _build_finding(cell: dict | None) -> dict | None:
 
 
 def _build_agents(names, results, contexts, non_enrich, isaacus_findings, n):
-    """Package ALL non-enrichment columns for Sonnet, with Isaacus findings."""
+    """Package 1 document per agent for maximum parallelism."""
     agents = []
-    for bi in range(0, n, 5):
+    for bi in range(0, n, 1):
         batch_docs = []
-        for i in range(bi, min(bi + 5, n)):
+        for i in range(bi, min(bi + 1, n)):
             ctx = contexts[i]
             if not ctx["unique_clauses"]:
                 continue
@@ -141,6 +134,13 @@ def main():
         if nc > 0:
             all_embeds[i] = clause_vecs[pos:pos + nc]
         pos += nc
+
+    # Save clause index for agentic search (isaacus_search.py)
+    idx_dir = out_dir / "clause_index"
+    idx_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(n):
+        np.save(str(idx_dir / f"{names[i]}.npy"), all_embeds[i])
+        (idx_dir / f"{names[i]}.json").write_text(json.dumps(all_clauses[i]))
 
     prompt_texts = [simplify_prompt(c["prompt"]) for c in non_enrich]
     prompt_vecs = embed_prompts(client, prompt_texts)
