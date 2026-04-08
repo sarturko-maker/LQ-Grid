@@ -162,19 +162,20 @@ async function handleUpload(req: Request, ctx: RouteContext) {
     }
     if (engine === 'isaacus') {
       prompt = `${files.length} contracts have been uploaded to data/contracts/:\n${fileList}\n\n` +
-        `Use the Isaacus hybrid pipeline (Isaacus finds, Sonnet reasons on top):\n` +
+        `Use the Isaacus hybrid pipeline (Isaacus finds, Sonnet verifies ALL columns from chunks):\n` +
         `1. Convert documents: python3 src/pipeline/convert.py --input data/contracts/ --output data/output/texts/\n` +
         `2. ${schemaInstruction}\n` +
         `3. Run Isaacus pipeline: python3 src/pipeline/isaacus_pipeline.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
-        `   Isaacus fills enrichment columns as FINAL. For all others, produces preliminary findings + clause index.\n` +
-        `4. Read data/output/results/rag-prompts.json — 1 agent per document, all non-enrichment columns.\n` +
+        `   Isaacus produces preliminary findings for ALL columns (enrichment + extraction). Nothing is final until Sonnet verifies.\n` +
+        `4. Read data/output/results/rag-prompts.json — 1 agent per document, ALL columns.\n` +
         `   Each column has Isaacus clause excerpts and optional isaacus_finding (preliminary value with offsets).\n` +
         `   Spawn Sonnet reviewer agents — 1 per document, up to 10 in parallel per wave. Each agent should:\n` +
-        `   - Work from the provided clause excerpts (NOT the full document text)\n` +
-        `   - VERIFY Isaacus findings — if isaacus_finding exists, confirm with exact offsets and proper formatting\n` +
-        `   - If a column has no finding and no relevant clauses, use the Isaacus search tool to find clauses:\n` +
-        `     python3 src/pipeline/isaacus_search.py --doc <filename> --query "<alternative search terms>" --index data/output/results/clause_index --top_k 5\n` +
-        `   - Only read the full document text (data/output/texts/<filename>) as a last resort\n` +
+        `   - Work ONLY from the provided clause excerpts — do NOT read the full document text\n` +
+        `   - For each column with an isaacus_finding: VERIFY the value, confirm or correct with exact offsets\n` +
+        `   - For columns with no finding: extract from the provided clauses if possible\n` +
+        `   - If a provision is missing from clauses (different wording, scattered), use Isaacus agentic search:\n` +
+        `     python3 src/pipeline/isaacus_search.py --doc <filename> --query "<alternative terms>" --index data/output/results/clause_index --top_k 5\n` +
+        `     Try 2-3 alternative queries before concluding the provision doesn't exist\n` +
         `   - FORMAT output per the column prompt: verbatim quotes, summaries, Yes/No, or enum values\n` +
         `   - Write results to data/output/results/{batch_name}.json in the standard reviewer format.\n` +
         `5. After each wave, rebuild manifest and copy to UI:\n` +
