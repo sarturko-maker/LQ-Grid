@@ -168,16 +168,12 @@ async function handleUpload(req: Request, ctx: RouteContext) {
         `3. Run Isaacus pipeline: python3 src/pipeline/isaacus_pipeline.py --texts data/output/texts/ --schema templates/schemas/${schemaFile}.json --output data/output/results/\n` +
         `   Isaacus produces preliminary findings for ALL columns (enrichment + extraction). Nothing is final until Sonnet verifies.\n` +
         `4. Read data/output/results/rag-prompts.json — 1 agent per document, ALL columns.\n` +
-        `   Each column has Isaacus clause excerpts and optional isaacus_finding (preliminary value with offsets).\n` +
-        `   Spawn Sonnet reviewer agents — 1 per document, up to 10 in parallel per wave. Each agent should:\n` +
-        `   - Work ONLY from the provided clause excerpts — do NOT read the full document text\n` +
-        `   - For each column with an isaacus_finding: VERIFY the value, confirm or correct with exact offsets\n` +
-        `   - For columns with no finding: extract from the provided clauses if possible\n` +
-        `   - If a provision is missing from clauses (different wording, scattered), use Isaacus agentic search:\n` +
-        `     python3 src/pipeline/isaacus_search.py --doc <filename> --query "<alternative terms>" --index data/output/results/clause_index --top_k 5\n` +
-        `     Try 2-3 alternative queries before concluding the provision doesn't exist\n` +
-        `   - FORMAT output per the column prompt: verbatim quotes, summaries, Yes/No, or enum values\n` +
-        `   - Write results to data/output/results/{batch_name}.json in the standard reviewer format.\n` +
+        `   Spawn Sonnet reviewer agents using the isaacus-reviewer teammate (.claude/agents/isaacus-reviewer.md).\n` +
+        `   1 agent per document, up to 10 in parallel per wave.\n` +
+        `   IMPORTANT: Agents must NOT read the full document text. They work from clause excerpts only.\n` +
+        `   For each agent, pass: the document's context_clauses, all column definitions with isaacus_findings,\n` +
+        `   and the clause_index path (data/output/results/clause_index) for agentic search.\n` +
+        `   Agents write results to data/output/results/{batch_name}.json in the standard reviewer format.\n` +
         `5. After each wave, rebuild manifest and copy to UI:\n` +
         `   python3 src/pipeline/format_for_ui.py --results data/output/results/ --schema templates/schemas/${schemaFile}.json --output data/output/ui-manifest.json --contracts data/contracts/\n` +
         `   cp data/output/ui-manifest.json src/ui/public/data/output/ui-manifest.json\n` +
